@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: jfrog-registry-operator-service
+spec:
+  selector:
+    app: jfrog-operator
+  ports:
+    - protocol: TCP
+      name: operator
+      port: 8080
+      targetPort: 8080
+    - protocol: TCP
+      port: 8081
+      name: operator2
+      targetPort: 8081
+    - protocol: TCP
+      port: 9443
+      name: metrics
+      targetPort: 9443

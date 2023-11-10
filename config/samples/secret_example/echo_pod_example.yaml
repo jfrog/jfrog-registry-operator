@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reg-echo1
+  labels:
+    app: reg-echo1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reg-echo1
+  template:
+    metadata:
+      labels:
+        app: reg-echo1
+    spec:
+      containers:
+        - name: reg-echo1
+          image: accessassumedrole2.jfrogdev.org/testrepo/hello-world:1
+          ports:
+            - containerPort: 8080
+              name: regport1
+          imagePullPolicy: Always
+      imagePullSecrets:
+        - name: rt-rotated-secret
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-service
+spec:
+  selector:
+    app: reg-echo1
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: regport1
