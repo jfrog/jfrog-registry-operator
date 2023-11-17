@@ -1,0 +1,386 @@
+# Default values for JFrog Registry Operator.
+global:
+  # imageRegistry: ""
+  ## E.g.
+  imagePullSecrets: []
+  # storageClass: ""
+
+image:
+  registry: releases-docker.jfrog.io
+  repository: jfrog/jfrog-registry-operator
+  tag: 0.0.3
+
+  pullPolicy: IfNotPresent
+  # pullSecrets:
+
+## @param nameOverride String to partially override jfrog-registry-operator.fullname template (will maintain the release name)
+##
+nameOverride: ""
+
+## @param fullnameOverride String to fully override jfrog-registry-operator.fullname template
+##
+fullnameOverride:
+
+## @param kubeVersion Force target Kubernetes version (using Helm capabilities if not set)
+##
+kubeVersion: ""
+
+## @param clusterDomain Kubernetes Cluster Domain
+##
+clusterDomain: cluster.local
+
+## @param hostAliases Deployment pod host aliases
+## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+##
+hostAliases: []
+## @param commonAnnotations Annotations to add to all deployed objects
+##
+commonAnnotations: {}
+
+## @param command Override default container command (useful when using custom images)
+##
+command: []
+## @param args Override default container args (useful when using custom images)
+##
+args: []
+
+## @param terminationGracePeriodSeconds Default duration in seconds k8s waits for container to exit before sending kill signal.
+## Any time in excess of 10 seconds will be spent waiting for any synchronization necessary for cluster not to lose data.
+##
+terminationGracePeriodSeconds: 120
+
+## @param extraEnvironmentVariables that can be used to tune jfrog-registry-operator to your needs.
+## Example:
+## extraEnvironmentVariables:
+##   - name: MY_ENV_VAR
+##     value: ""
+extraEnvironmentVariables:
+  - name: TOKEN
+    value: ""
+
+## @param extraEnvVarsCM Name of existing ConfigMap containing extra environment variables
+##
+extraEnvVarsCM: ""
+
+## @param extraEnvVarsSecret Name of existing Secret containing extra environment variables (in case of sensitive data)
+##
+extraEnvVarsSecret: ""
+
+## @param extraContainerPorts Extra ports to be included in container spec, primarily informational
+## E.g:
+## extraContainerPorts:
+## - name: new_port_name
+##   containerPort: 1234
+##
+extraContainerPorts: []
+
+## @param extraVolumeMounts Optionally specify extra list of additional volumeMounts
+## Examples:
+## extraVolumeMounts:
+##   - name: extras
+##     mountPath: /usr/share/extras
+##     readOnly: true
+##
+extraVolumeMounts: []
+## @param extraVolumes Optionally specify extra list of additional volumes .
+## Example:
+## extraVolumes:
+##   - name: extras
+##     emptyDir: {}
+##
+extraVolumes: []
+
+## @param extraSecrets Optionally specify extra secrets to be created by the chart.
+## This can be useful when combined with load_definitions to automatically create the secret containing the definitions to be loaded.
+## Example:
+## extraSecrets:
+##   load-definition:
+##     load_definition.json: |
+##       {
+##         ...
+##       }
+##
+extraSecrets: {}
+## @param extraSecretsPrependReleaseName Set this flag to true if extraSecrets should be created with <release-name> prepended.
+##
+extraSecretsPrependReleaseName: false
+
+## @section Statefulset parameters
+##
+
+## @param replicaCount Number of jfrog-registry-operator replicas to deploy
+##
+replicaCount: 1
+
+## @param schedulerName Use an alternate scheduler, e.g. "stork".
+## ref: https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/
+##
+schedulerName: ""
+
+## @param podLabels jfrog-registry-operator Pod labels. Evaluated as a template
+## Ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+##
+podLabels: {}
+
+## @param podAnnotations jfrog-registry-operator Pod annotations. Evaluated as a template
+## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+##
+podAnnotations: {}
+
+## @param deploymentLabels jfrog-registry-operator deployment labels. Evaluated as a template
+## Ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+##
+deploymentLabels:
+  AutomationCleanupIgnore: "true"
+  control-plane: controller-manager
+  app.kubernetes.io/name: namespace
+  app.kubernetes.io/instance: system
+  app.kubernetes.io/created-by: artifactory-secrets-rotator
+  app.kubernetes.io/part-of: artifactory-secrets-rotator
+
+## @param priorityClassName Name of the priority class to be used by jfrog-registry-operator pods, priority class needs to be created beforehand
+## Ref: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/
+##
+priorityClassName: ""
+
+## @param podAffinityPreset Pod affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
+##
+podAffinityPreset: ""
+
+## @param podAntiAffinityPreset Pod anti-affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+## Ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
+##
+podAntiAffinityPreset: soft
+
+## Node affinity preset
+## Ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
+##
+nodeAffinityPreset:
+  ## @param nodeAffinityPreset.type Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+  ##
+  type: ""
+  ## @param nodeAffinityPreset.key Node label key to match Ignored if `affinity` is set.
+  ## E.g.
+  ## key: "kubernetes.io/e2e-az-name"
+  ##
+  key: ""
+  ## @param nodeAffinityPreset.values Node label values to match. Ignored if `affinity` is set.
+  ## E.g.
+  ## values:
+  ##   - e2e-az1
+  ##   - e2e-az2
+  ##
+  values: []
+
+## @param affinity Affinity for pod assignment. Evaluated as a template
+## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+## Note: podAffinityPreset, podAntiAffinityPreset, and  nodeAffinityPreset will be ignored when it's set
+##
+affinity: {}
+
+## @param nodeSelector Node labels for pod assignment. Evaluated as a template
+## ref: https://kubernetes.io/docs/user-guide/node-selection/
+##
+nodeSelector: {}
+
+## @param tolerations Tolerations for pod assignment. Evaluated as a template
+## Ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+##
+tolerations: []
+
+## @param topologySpreadConstraints Topology Spread Constraints for pod assignment spread across your cluster among failure-domains. Evaluated as a template
+## Ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/#spread-constraints-for-pods
+##
+topologySpreadConstraints: []
+
+## jfrog-registry-operator pods' Security Context
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+## @param podSecurityContext.enabled Enable jfrog-registry-operator pods' Security Context
+## @param podSecurityContext.fsGroup Group ID for the filesystem used by the containers
+## @param podSecurityContext.runAsUser User ID for the service user running the pod
+##
+podSecurityContext:
+  runAsNonRoot: true
+  enabled: true
+  fsGroup: 1065
+  runAsUser: 1065
+
+
+## @param containerSecurityContext jfrog-registry-operator containers' Security Context
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+## Example:
+##   containerSecurityContext:
+##     capabilities:
+##       drop: ["NET_RAW"]
+##     readOnlyRootFilesystem: true
+##
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+
+# Add lifecycle hooks for access container
+lifecycle: {}
+  # postStart:
+  #   exec:
+  #     command: ["/bin/sh", "-c", "echo Hello from the postStart handler"]
+  # preStop:
+  #   exec:
+  #     command: ["/bin/sh","-c","echo Hello from the preStop handler"]
+
+resources: {}
+  ## Example:
+  ## limits:
+  ##    cpu: 1000m
+  ##    memory: 2Gi
+  ##
+  ## Examples:
+  ## requests:
+  ##    cpu: 1000m
+  ##    memory: 2Gi
+  ##
+
+## Specify common probes parameters
+probes:
+  timeoutSeconds: 5
+
+## The following settings are to configure the frequency of the liveness and startup probes when splitServicesToContainers set to true
+livenessProbe:
+  enabled: true
+  config: |
+    httpGet:
+      path: /healthz
+      port: 8081
+    initialDelaySeconds: 15
+    periodSeconds: 20
+
+readinessProbe:
+  enabled: true
+  config: |
+    httpGet:
+      path: /readyz
+      port: 8081
+    initialDelaySeconds: 5
+    periodSeconds: 10
+startupProbe:
+  enabled: false
+  # config: |
+  #   httpGet:
+  #     path: /readyz
+  #     port: 8081
+  #   initialDelaySeconds: 5
+  #   periodSeconds: 10
+## @section RBAC parameters
+##
+
+## jfrog-registry-operator pods ServiceAccount
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+##
+serviceAccount:
+  ## @param serviceAccount.create Enable creation of ServiceAccount for jfrog-registry-operator pods
+  ##
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::000000000000:role/aws-token-exchange
+  ## @param serviceAccount.name Name of the created serviceAccount
+  ## If not set and create is true, a name is generated using the jfrog-registry-operator.fullname template
+  ##
+  name: ""
+  ## @param serviceAccount.automountServiceAccountToken Auto-mount the service account token in the pod
+  ##
+  automountServiceAccountToken: true
+
+  ## Example:
+  # annotations: |
+  #   eks.amazonaws.com/role-arn: arn:aws:iam::000000000000:role/jfrog-operator-role
+  annotations: |
+
+## Role Based Access
+## ref: https://kubernetes.io/docs/admin/authorization/rbac/
+##
+rbac:
+  ## @param rbac.create Whether RBAC rules should be created
+  ## binding jfrog-registry-operator ServiceAccount to a role
+  ## that allows jfrog-registry-operator pods querying the K8s API
+  ##
+  create: true
+
+## Autoscaling configuration
+##
+autoscaling:
+  ## @param autoscaling.enabled Enable replica autoscaling settings
+  ##
+  enabled: false
+  ## @param autoscaling.minReplicas Minimum replicas for the pod autoscaling
+  ##
+  minReplicas: 1
+  ## @param autoscaling.maxReplicas Maximum replicas for the pod autoscaling
+  ##
+  maxReplicas: 3
+  ## @param autoscaling.targetCPU Percentage of CPU to consider when autoscaling
+  ##
+  targetCPU: ""
+  ## @param autoscaling.targetMemory Percentage of Memory to consider when autoscaling
+  ##
+  targetMemory: ""
+
+persistence:
+  ## @param persistence.enabled
+  ##
+  enabled: false
+
+  ## @param persistence.storageClass PVC Storage Class for metadata data volume
+  ## If defined, storageClassName: <storageClass>
+  ## If set to "-", storageClassName: "", which disables dynamic provisioning
+  ## If undefined (the default) or set to null, no storageClassName spec is
+  ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
+  ##   GKE, AWS & OpenStack)
+  ##
+  storageClass: ""
+  ## @param persistence.selector Selector to match an existing Persistent Volume
+  ## selector:
+  ##   matchLabels:
+  ##     app: my-app
+  ##
+  selector: {}
+  ## @param persistence.accessMode PVC Access Mode for metadata data volume
+  ##
+  accessMode: ReadWriteOnce
+
+  ## @param persistence.existingClaim Provide an existing PersistentVolumeClaims
+  ## The value is evaluated as a template
+  ## So, for example, the name can depend on .Release or .Chart
+  ##
+  existingClaim: ""
+  ## @param persistence.mountPath The path the volume will be mounted at
+  ## Note: useful when using custom metadata images
+  ##
+  mountPath: /var/opt/jfrog/jfrog-registry-operator
+  ## @param persistence.subPath The subdirectory of the volume to mount to
+  ## Useful in dev environments and one PV for multiple services
+  ##
+  subPath: ""
+  ## @param persistence.size PVC Storage Request for metadata data volume
+  ## If you change this value, you might have to adjust `metadata.diskFreeLimit` as well
+  ##
+  size: 8Gi
+
+  ## @param persistence.volumes Additional volumes without creating PVC
+  ##  - name: volume_name
+  ##    emptyDir: {}
+  ##
+  volumes: []
+  ## @param persistence.annotations Persistence annotations. Evaluated as a template
+  ## Example:
+  ## annotations:
+  ##   example.io/disk-volume-type: SSD
+  ##
+  annotations: {}
+
+initContainers:
+  image:
+    registry: releases-docker.jfrog.io
+    repository: ubi9/ubi-minimal
+    tag: 9.2.717
+    pullPolicy: IfNotPresent
+    pullSecrets: []

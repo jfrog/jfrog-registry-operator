@@ -1,4 +1,4 @@
-package types
+package operations
 
 import (
 	"time"
@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-// AccessResponse
+// AccessResponse JFrog token response
 type AccessResponse struct {
 	TokenId     string `json:"token_id"`
 	AccessToken string `json:"access_token"`
@@ -17,7 +17,7 @@ type AccessResponse struct {
 	Username    string `json:"username"`
 }
 
-// TokenDetails holding resorce object token details
+// TokenDetails holding resource object token details
 type TokenDetails struct {
 	Username              string
 	Token                 string
@@ -26,16 +26,26 @@ type TokenDetails struct {
 	NamespaceSelector     labels.Selector
 	RequeueInterval       time.Duration
 	NamespaceList         v1.NamespaceList
-	RefreshInt            time.Duration
 	FailedNamespaces      map[string]error
 	ProvisionedNamespaces []string
 	TTLInSeconds          float64
 }
 
+// ReconcileError reconcile error struct
+type ReconcileError struct {
+	RetryIn time.Duration
+	Message string
+	Cause   error
+}
+
+func (r *ReconcileError) Error() string {
+	return r.Message
+}
+
 const SecretRotatorFinalizer = "apps.jfrog.com/finalizer"
 const (
-	// typeAvailableMemcached represents the status of the Deployment reconciliation
+	// TypeAvailableSecretRotator represents the status of the Deployment reconciliation
 	TypeAvailableSecretRotator = "Available"
-	// typeDegradedMemcached represents the status used when the custom resource is deleted and the finalizer operations are must to occur.
+	// TypeDegradedSecretRotator represents the status used when the custom resource is deleted and the finalizer operations are must to occur.
 	TypeDegradedSecretRotator = "Degraded"
 )

@@ -2,7 +2,7 @@ package resource
 
 import (
 	jfrogv1alpha1 "artifactory-secrets-rotator/api/v1alpha1"
-	tokenType "artifactory-secrets-rotator/internal/types"
+	tokenType "artifactory-secrets-rotator/internal/operations"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -27,10 +27,7 @@ func IsSecretOwnedBy(secret *v1.Secret, secretOperatorName string) bool {
 }
 func GetSecret(ctx context.Context, namespace, secretName string, k8sClient client.Client) (*v1.Secret, error) {
 	// Should not use esv1beta1.ExternalSecret since we specify builder.OnlyMetadata and cache only metadata
-	logger := log.FromContext(ctx)
-
 	secret := &v1.Secret{}
-	logger.Info("getting secret with ", "namespace", namespace, "name", secretName)
 	err := k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: secretName}, secret)
 	return secret, err
 }
@@ -90,8 +87,8 @@ func DeleteSecret(ctx context.Context, esName, cesName, namespace string, k8sCli
 	return nil
 }
 
-// CreateOrUpdatelSecret handling secrets with new or latest token
-func CreateOrUpdatelSecret(req ctrl.Request, ctx context.Context, tokenDetails *tokenType.TokenDetails, secretRotator *jfrogv1alpha1.SecretRotator, namespace v1.Namespace, k8sClient client.Client, scheme *runtime.Scheme) error {
+// CreateOrUpdateSecret handling secrets with new or latest token
+func CreateOrUpdateSecret(req ctrl.Request, ctx context.Context, tokenDetails *tokenType.TokenDetails, secretRotator *jfrogv1alpha1.SecretRotator, namespace v1.Namespace, k8sClient client.Client, scheme *runtime.Scheme) error {
 	logger := log.FromContext(ctx)
 
 	secretObj := &v1.Secret{}

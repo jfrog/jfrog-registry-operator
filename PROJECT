@@ -9,7 +9,7 @@ plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
 projectName: artifactory-secrets-rotator
-repo: git.jfrog.info/scm/~carmith/artifactory-secrets-rotator
+repo: github.com/jfrog/jfrog-registry-operator.git
 resources:
 - api:
     crdVersion: v1
@@ -18,6 +18,6 @@ resources:
   domain: jfrog.com
   group: jfrog
   kind: SecretRotator
-  path: git.jfrog.info/scm/~carmith/artifactory-secrets-rotator/api/v1alpha1
+  path: github.com/jfrog/jfrog-registry-operator.git
   version: v1alpha1
 version: "3"
