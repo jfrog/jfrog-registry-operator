@@ -67,7 +67,7 @@ spec:
           - ./operator
         args:
         - --leader-elect
-        image: carmitassumerole2.jfrogdev.org/access-aws-poc/aws-assume-role/aws-cred-rotator:118
+        image: releases-docker.jfrog.io/jfrog/jfrog-registry-operator:0.0.3
         name: manager
         ports:
         - containerPort: 8080
@@ -109,7 +109,7 @@ kind: ServiceAccount
 metadata:
   annotations:
   ## todo: should be reconfigured through helm-chart
-    eks.amazonaws.com/role-arn: arn:aws:iam::352084622833:role/aws-token-exchange
+    eks.amazonaws.com/role-arn: arn:aws:iam::000000000000:role/aws-token-exchange
   labels:
     app.kubernetes.io/name: serviceaccount
     app.kubernetes.io/instance: controller-manager

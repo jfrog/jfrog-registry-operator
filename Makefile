@@ -1,8 +1,8 @@
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
-# - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
-# - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
+# - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.3)
+# - use environment variables to overwrite this value (e.g export VERSION=0.0.3)
 VERSION ?= 0.0.1
 PROJECT_DIR = $(CURDIR)
 SCRIPTS_DIR = ${PROJECT_DIR}/scripts
@@ -31,7 +31,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
 # jfrog.com/operator-bundle:$VERSION and jfrog.com/operator-catalog:$VERSION.
-IMAGE_TAG_BASE ?= carmitassumerole2.jfrogdev.org/access-aws-poc/aws-assume-role/aws-cred-rotator:118
+IMAGE_TAG_BASE ?= docker.jfrog.io/jfrog/jfrog-registry-operator:test
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
@@ -39,7 +39,7 @@ BUNDLE_IMG ?= $(IMAGE_TAG_BASE)
 
 # BUNDLE_GEN_FLAGS are the flags passed to the operator-sdk generate bundle command
 BUNDLE_GEN_FLAGS ?= -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-Adding modularity and methods structuring
+
 # USE_IMAGE_DIGESTS defines if images are resolved via tags or digests
 # You can enable this value if you would like to use SHA Based Digests
 # To enable set flag to true
