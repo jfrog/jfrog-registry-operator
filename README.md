@@ -1,19 +1,31 @@
 
-# Getting Started
-You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
-**Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
+# JFrog Registry Operator
 
-## 2 Ways to install an operator using manual deployment and a Helm chart on Kubernetes
+## Two ways to install an operator using manual deployment and a Helm chart on Kubernetes
 
-## 1. Install operator using helm chart
-### Install JFrog secret rotator operator
-```shell
+### Install operator using helm chart
+
+```bash
+# Get the latest [Helm release](https://github.com/helm/helm#install) Note: (only V3 is supported)
+# before installing JFrog helm charts, you need to add the [JFrog helm repository](https://charts.jfrog.io) to your helm client.
+helm repo add jfrog https://charts.jfrog.io
+
+# update the helm repo
+helm repo update
+
+# decide on the namespace and kubernetes service account name you will want to create
+export SERVICE_ACCOUNT_NAME="<service account name>"
+export ANNOTATIONS="<Role annotation for service account>" # Example: eks.amazonaws.com/role-arn: arn:aws:iam::000000000000:role/jfrog-operator-role
+export NAMESPACE="jfrog-operator"
+
+# install JFrog secret rotator operator
 helm upgrade --install secretrotator jfrog/jfrog-registry-operator --set "serviceAccount.name=${SERVICE_ACCOUNT_NAME}" --set serviceAccount.annotations=${ANNOTATIONS}  -n ${NAMESPACE}
 ```
 
-Once operator is in running state, configure artifactoryUrl, refreshTime, namespaceSelector and secretMetadata in /charts/jfrog-registry-operator/examples/secretrotator.yaml
+Once operator is in running state, configure artifactoryUrl, refreshTime, namespaceSelector and secretMetadata in [secretrotator.yaml](https://github.com/jfrog/jfrog-registry-operator/blob/main/charts/jfrog-registry-operator/examples/secretrotator.yaml)
 
 Sample Manifest:
+
 ```
 apiVersion: apps.jfrog.com/v1alpha1
 kind: SecretRotator
@@ -36,51 +48,69 @@ spec:
     labels:
       labelName: labelValue
 ```
+
+Apply the secretrotator mainfest:
+
 ```
-Run: kubectl apply -f /charts/jfrog-registry-operator/examples/secretrotator.yaml -n ${NAMESPACE}
+kubectl apply -f /charts/jfrog-registry-operator/examples/secretrotator.yaml -n ${NAMESPACE}
 ```
 
-### UnInstall JFrog secret rotator operator
+#### Uninstalling JFrog Secret Rotator operator
+
 ```shell
+# uninstall secretrotator using the following command
 helm uninstall secretrotator -n ${NAMESPACE}
-kubectl delete -f /charts/jfrog-registry-operator/examples/secretrotator.yaml -n ${NAMESPACE}
-```
 
-### [Note]: helm uninstall will not delete CRDs, to Uninstall CRDs run:
-```sh
+# uninstall secretrotator object (path should be pointing to secretrotator CR yaml)
+kubectl delete -f [secretrotator.yaml](https://github.com/jfrog/jfrog-registry-operator/blob/main/charts/jfrog-registry-operator/examples/secretrotator.yaml) -n ${NAMESPACE}
+
+# remove CRD from cluster
 kubectl delete crd secretrotators.apps.jfrog.com
 ```
 
-## 2. Install JFrog secret rotator operator manually
-1. Install Custom Resources Defination:
+### Install JFrog secret rotator operator manually
+
 ```sh
-kubectl apply -f https://git.jfrog.info/users/repos/jfrog-registry-operator/raw/config/crd/bases/apps.jfrog.com_secretrotators.yaml?at=refs%2Fheads%2Ffeature%2FINST-7020-1
+# deploy the crd:
+kubectl apply -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/main/config/crd/bases/apps.jfrog.com_secretrotators.yaml
+
+# install operator
+kubectl apply -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/main/config/deploy/operator.yaml
+
+# create secretrotator object
+Ref: https://github.com/jfrog/jfrog-registry-operator/blob/main/charts/jfrog-registry-operator/examples/secretrotator.yaml
+kubectl apply -f [secretrotator.yaml](https://github.com/jfrog/jfrog-registry-operator/blob/main/charts/jfrog-registry-operator/examples/secretrotator.yaml) -n ${NAMESPACE}
 ```
-2. Deploy the operator:
+
+#### Uninstall operator
+
 ```sh
-kubectl apply -f https://git.jfrog.info/users/repos/jfrog-registry-operator/raw/config/deploy/operator.yaml?at=refs%2Fheads%2Ffeature%2FINST-7020-1
+# delete secretrotator object
+Ref: https://github.com/jfrog/jfrog-registry-operator/blob/main/charts/jfrog-registry-operator/examples/secretrotator.yaml
+kubectl delete -f secretrotator.yaml -n ${NAMESPACE}
+
+# delete the operator:
+kubectl delete -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/main/config/deploy/operator.yaml
+
+### delete CRD
+kubectl delete -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/main/config/crd/bases/apps.jfrog.com_secretrotators.yaml
 ```
+
 ### Check Resources in your cluster
+
 ```shell
 # For secrets in your namespace
 kubectl get secrets -n ${NAMESPACE}
+
 # For operator pod in your namespace
 kubectl get po -n ${NAMESPACE}
+
 # For SecretRotator
 kubectl get SecretRotator
 ```
-### Undeploy operator
-Uninstall the operator:
-```sh
-kubectl delete -f https://git.jfrog.info/users/repos/jfrog-registry-operator/raw/config/deploy/operator.yaml?at=refs%2Fheads%2Ffeature%2FINST-7020-1
-```
-### Uninstall CRDs
-To delete the CRDs from the cluster:
-```sh
-kubectl delete -f https://git.jfrog.info/users/repos/jfrog-registry-operator/raw/config/crd/bases/apps.jfrog.com_secretrotators.yaml?at=refs%2Fheads%2Ffeature%2FINST-7020-1
-```
 
 ## Monitoring operator
+
 Follow [monitoring setup docs](./config/monitoring/).
 
 ## How to contribute
