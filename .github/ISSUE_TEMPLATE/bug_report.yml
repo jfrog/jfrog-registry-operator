@@ -81,10 +81,3 @@ body:
       label: Operating system type and version
     validations:
       required: true
-
-  - type: input
-    id: xr-version
-    attributes:
-      label: JFrog Xray version
-    validations:
-      required: false
