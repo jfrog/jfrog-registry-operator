@@ -189,7 +189,7 @@ persistence:
   ##
   mountPath: /var/opt/jfrog/jfrog-registry-operator
   ## @param persistence.subPath The subdirectory of the volume to mount to
-  ## Useful in dev environments and one PV for multiple services
+  ## Useful in main environments and one PV for multiple services
   ##
   subPath: ""
   ## @param persistence.size PVC Storage Request for metadata data volume
