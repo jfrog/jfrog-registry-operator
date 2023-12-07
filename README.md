@@ -1,6 +1,18 @@
 
+<div align="center">
+
 # JFrog Registry Operator
 
+[![JFrog Registry Operator](config/images/frogbot-intro.png)](#readme)
+
+[![Scanned by JFrog Registry Operator](config/images/frogbot-badge.png)](https://github.com/jfrog/jfrog-registry-operator#readme)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jfrog/jfrog-registry-operator)](https://goreportcard.com/report/github.com/jfrog/jfrog-registry-operator)
+
+[![Build status](https://github.com/jfrog/jfrog-registry-operator/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/jfrog/jfrog-registry-operator/actions/workflows/test.yml?branch=main)
+[![GitHub issues](https://img.shields.io/github/issues/jfrog/jfrog-registry-operator)](https://github.com/jfrog/jfrog-registry-operator/issues)
+![GitHub Workflow](https://github.com/jfrog/jfrog-registry-operator/actions/workflows/frogbot-scan-repository.yml/badge.svg?branch=main)
+
+</div>
 
 ### Install operator using helm chart
 
