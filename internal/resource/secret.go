@@ -123,6 +123,7 @@ func CreateOrUpdateSecret(req ctrl.Request, ctx context.Context, tokenDetails *t
 			}
 		}`, tokenDetails.ArtifactoryUrl, tokenb64)),
 	}
+	secretObj.Type = v1.SecretTypeDockerConfigJson
 
 	err = k8sClient.Update(ctx, secretObj)
 	if err != nil {

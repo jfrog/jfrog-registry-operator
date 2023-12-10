@@ -23,7 +23,7 @@ helm repo add jfrog https://charts.jfrog.io
 helm repo update
 
 # decide on the namespace and kubernetes service account name you will want to create
-export SERVICE_ACCOUNT_NAME="<service account name>"
+export SERVICE_ACCOUNT_NAME="<service account name>" # Default name is jfrog-operator-sa"
 export ANNOTATIONS="<Role annotation for service account>" # Example: eks.amazonaws.com/role-arn: arn:aws:iam::000000000000:role/jfrog-operator-role
 export NAMESPACE="jfrog-operator"
 

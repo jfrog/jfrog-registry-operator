@@ -19,6 +19,7 @@ package controllers
 import (
 	jfrogv1alpha1 "artifactory-secrets-rotator/api/v1alpha1"
 	"artifactory-secrets-rotator/internal/operations"
+	"math"
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
@@ -130,8 +131,9 @@ func WatchNsChanges(r *SecretRotatorReconciler) predicate.Predicate {
 		CreateFunc: func(e event.CreateEvent) bool {
 			if _, ok := e.Object.(*corev1.Namespace); ok {
 				secretRotators := operations.ListSecretRotatorObjects(r.Client)
+				difference := e.Object.GetCreationTimestamp().Time.Sub(time.Now())
 				for i := range secretRotators.Items {
-					if operations.IsExist(e.Object.GetLabels(), secretRotators.Items[i].Spec.NamespaceSelector.MatchLabels) {
+					if operations.IsExist(e.Object.GetLabels(), secretRotators.Items[i].Spec.NamespaceSelector.MatchLabels) && int(math.Abs(difference.Seconds())) < 20 {
 						r.Log.Info("Created new namespace with matching labels to secret rotator object, ", "Namespace name :", e.Object.GetName(), "Secret rotator name :", secretRotators.Items[i].Name)
 						if flag := operations.HandlingNamespaceEvents(r.Client, r.Log, &secretRotators.Items[i]); !flag {
 							return false
