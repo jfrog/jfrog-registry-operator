@@ -92,6 +92,7 @@ type SecretRotatorStatus struct {
 }
 
 // ExternalSecretCreationPolicy defines rules on how to create the resulting Secret.
+
 // ExternalSecretTemplate defines a blueprint for the created Secret resource.
 // we can not use native corev1.Secret, it will have empty ObjectMeta values: https://github.com/kubernetes-sigs/controller-tools/issues/448
 

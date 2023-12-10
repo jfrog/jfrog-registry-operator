@@ -5,6 +5,7 @@ import (
 	"artifactory-secrets-rotator/internal/handler"
 	operations "artifactory-secrets-rotator/internal/operations"
 	resource "artifactory-secrets-rotator/internal/resource"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -110,6 +111,8 @@ func (r *SecretRotatorReconciler) UpdateStatus(ctx context.Context, tokenDetails
 	if err := r.Status().Update(ctx, secretRotator); err != nil {
 		return &operations.ReconcileError{Message: "Failed to update SecretRotator status", Cause: err, RetryIn: 1 * time.Minute}
 	}
+	r.Recorder.Eventf(secretRotator, "Normal", "Secret rotated successfully", "")
+
 	return nil
 }
 
@@ -216,4 +219,24 @@ func (r *SecretRotatorReconciler) DeferPatch(ctx context.Context, secretRotator 
 // DoFinalizerOperationsForSecretRotator updating k8s event
 func (r *SecretRotatorReconciler) DoFinalizerOperationsForSecretRotator(secretRotator *jfrogv1alpha1.SecretRotator) {
 	r.Recorder.Event(secretRotator, "Warning", "Deleting", fmt.Sprintf("Custom Resource %s is being deleted from the namespace %s", secretRotator.Name, secretRotator.Namespace))
+}
+
+// handleError converts an error into reconcile result
+func (r *SecretRotatorReconciler) handleError(err error) (ctrl.Result, error) {
+	var status *operations.ReconcileError
+	if !errors.As(err, &status) {
+		r.Log.Error(err, "Reconcile terminated")
+		return ctrl.Result{}, err
+	}
+	if status.Cause == nil {
+		r.Log.Error(status, status.Message)
+	} else {
+		r.Log.Error(status.Cause, status.Message)
+	}
+	if status.RetryIn == 0*time.Minute {
+		r.Log.Info("Reconcile stopped")
+		return ctrl.Result{}, nil
+	}
+	r.Log.Info("Reconcile stopped, will retry in", "next iteration", status.RetryIn)
+	return ctrl.Result{RequeueAfter: status.RetryIn}, nil
 }
