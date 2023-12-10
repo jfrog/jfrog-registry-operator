@@ -3,8 +3,8 @@ kubeVersion: ">= 1.19.0-0"
 type: application
 name: jfrog-registry-operator
 home: https://jfrog.com/platform/
-version: 0.0.3
-appVersion: 0.x-SNAPSHOT
+version: 1.0.0
+appVersion: 1.x-SNAPSHOT
 dependencies:
   - name: jfrog-common
     version: 0.0.7
