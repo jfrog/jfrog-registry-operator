@@ -8,11 +8,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"io"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
 
 	"k8s.io/client-go/tools/record"
 
@@ -32,7 +33,7 @@ func HandlingToken(ctx context.Context, tokenDetails *operations.TokenDetails, s
 	awsTokenFile := os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE")
 	//getting AWS_ROLE_ARN from env
 	if awsRoleName == "" {
-		recorder.Event(secretRotator, "Warning", "Misconfiguration", "missing aws Role Name")
+		recorder.Eventf(secretRotator, "Warning", "Misconfiguration", "missing aws Role Name")
 		return &operations.ReconcileError{Message: "AWS_ROLE_ARN is empty", RetryIn: 1 * time.Minute}
 	}
 	//getting AWS_WEB_IDENTITY_TOKEN_FILE from env
@@ -43,7 +44,7 @@ func HandlingToken(ctx context.Context, tokenDetails *operations.TokenDetails, s
 	//getting signed request headers for AWS STS GetCallerIdentity call
 	request, err := GetSignedRequest(ctx, awsRoleName, awsTokenFile)
 	if err != nil {
-		recorder.Event(secretRotator, "Warning", "TokenGenerationFailure",
+		recorder.Eventf(secretRotator, "Warning", "TokenGenerationFailure",
 			fmt.Sprintf("Error getting signed AWS credentials, error was %s", err.Error()))
 		return err
 	}
@@ -61,7 +62,7 @@ func HandlingToken(ctx context.Context, tokenDetails *operations.TokenDetails, s
 		err = errors.New("the token TTL taken from Role max session value, is shorter then reconciliation duration set through operator refreshTime, which is a misconfiguration causing token expire events")
 		logger.Error(err, "CRITICAL MIS CONFIGURATION")
 		//reflect this mis misconfiguration through the operator events
-		recorder.Event(secretRotator, "Warning", "TokenGenerationFailure",
+		recorder.Eventf(secretRotator, "Warning", "TokenGenerationFailure",
 			fmt.Sprintf("The token TTL taken from Role max session value (%d), is shorter then reconciliation duration set through operator refreshTime (%s), which is a misconfiguration causing token expire events",
 				*maxTTL,
 				secretRotator.Spec.RefreshInterval))
@@ -69,7 +70,7 @@ func HandlingToken(ctx context.Context, tokenDetails *operations.TokenDetails, s
 	logger.Info("Generating artifactory token")
 	tokenDetails.Username, tokenDetails.Token, err = createArtifactoryToken(ctx, request, tokenDetails.ArtifactoryUrl, maxTTL)
 	if err != nil {
-		recorder.Event(secretRotator, "Warning", "Misconfiguration",
+		recorder.Eventf(secretRotator, "Warning", "Misconfiguration",
 			fmt.Sprintf("could not get artifactory Token, notice we might ran into expired tokens if this persists, error was %s", err.Error()))
 		return err
 	}

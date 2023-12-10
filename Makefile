@@ -1,8 +1,8 @@
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
-# - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.3)
-# - use environment variables to overwrite this value (e.g export VERSION=0.0.3)
+# - use the VERSION as arg of the bundle target (e.g make bundle VERSION=1.0.0)
+# - use environment variables to overwrite this value (e.g export VERSION=1.0.0)
 VERSION ?= 0.0.1
 PROJECT_DIR = $(CURDIR)
 SCRIPTS_DIR = ${PROJECT_DIR}/scripts

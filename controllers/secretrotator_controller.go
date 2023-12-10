@@ -19,11 +19,13 @@ package controllers
 import (
 	jfrogv1alpha1 "artifactory-secrets-rotator/api/v1alpha1"
 	"artifactory-secrets-rotator/internal/operations"
-	"errors"
+	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"context"
 	"fmt"
@@ -86,16 +88,19 @@ func (r *SecretRotatorReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// InitializeResource initializes the secret rotator object and validates specs
 	if err := r.InitializeResource(ctx, &tokenDetails, secretRotator, req); err != nil {
+		r.Recorder.Eventf(secretRotator, "Warning", "Failed in initializing resource", "%s", err)
 		return r.handleError(err)
 	}
 
 	// ManagingSecrets is validating the desired state versus the actual state of secrets and creating or updating secrets.
 	if err := r.ManagingSecrets(ctx, &tokenDetails, secretRotator, req); err != nil {
+		r.Recorder.Eventf(secretRotator, "Warning", "Failed in managing secret", "%s", err)
 		return r.handleError(err)
 	}
 
 	// UpdateStatus, update the custom resource status
 	if err := r.UpdateStatus(ctx, &tokenDetails, secretRotator); err != nil {
+		r.Recorder.Eventf(secretRotator, "Warning", "Failed in updating status", "%s", err)
 		return r.handleError(err)
 	}
 
@@ -105,36 +110,52 @@ func (r *SecretRotatorReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	} else {
 		r.RequeueInterval = secretRotator.Spec.RefreshInterval.Duration
 	}
-
 	r.Log.Info("Reconcile completed, see you in", "next iteration", r.RequeueInterval)
 	return ctrl.Result{RequeueAfter: r.RequeueInterval}, nil
-}
-
-// handleError converts an error into reconcile result
-func (r *SecretRotatorReconciler) handleError(err error) (ctrl.Result, error) {
-	var status *operations.ReconcileError
-	if !errors.As(err, &status) {
-		r.Log.Error(err, "Reconcile terminated")
-		return ctrl.Result{}, err
-	}
-	if status.Cause == nil {
-		r.Log.Error(status, status.Message)
-	} else {
-		r.Log.Error(status.Cause, status.Message)
-	}
-	if status.RetryIn == 0*time.Minute {
-		r.Log.Info("Reconcile stopped")
-		return ctrl.Result{}, nil
-	}
-	r.Log.Info("Reconcile stopped, will retry in", "next iteration", status.RetryIn)
-	return ctrl.Result{RequeueAfter: status.RetryIn}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SecretRotatorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&jfrogv1alpha1.SecretRotator{}).
+		WithEventFilter(WatchNsChanges(r)).
 		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
 		Owns(&corev1.Namespace{}).
 		Complete(r)
+}
+
+// WatchNsChanges uses predicates for Event Filtering (namespace creation changes)
+func WatchNsChanges(r *SecretRotatorReconciler) predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			if _, ok := e.Object.(*corev1.Namespace); ok {
+				secretRotators := operations.ListSecretRotatorObjects(r.Client)
+				for i := range secretRotators.Items {
+					if operations.IsExist(e.Object.GetLabels(), secretRotators.Items[i].Spec.NamespaceSelector.MatchLabels) {
+						r.Log.Info("Created new namespace with matching labels to secret rotator object, ", "Namespace name :", e.Object.GetName(), "Secret rotator name :", secretRotators.Items[i].Name)
+						if flag := operations.HandlingNamespaceEvents(r.Client, r.Log, &secretRotators.Items[i]); !flag {
+							return false
+						}
+					}
+				}
+			}
+			return true
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if _, ok := e.ObjectOld.(*corev1.Namespace); ok {
+				if !reflect.DeepEqual(e.ObjectOld.GetLabels(), e.ObjectNew.GetLabels()) {
+					secretRotators := operations.ListSecretRotatorObjects(r.Client)
+					for i := range secretRotators.Items {
+						if operations.IsExist(e.ObjectNew.GetLabels(), secretRotators.Items[i].Spec.NamespaceSelector.MatchLabels) || operations.IsExist(e.ObjectOld.GetLabels(), secretRotators.Items[i].Spec.NamespaceSelector.MatchLabels) {
+							r.Log.Info("Namespace lebels has been changes, ", "Namespace name :", e.ObjectNew.GetName(), "Secret rotator name :", secretRotators.Items[i].Name)
+							if flag := operations.HandlingNamespaceEvents(r.Client, r.Log, &secretRotators.Items[i]); !flag {
+								return false
+							}
+						}
+					}
+				}
+			}
+			return true
+		},
+	}
 }

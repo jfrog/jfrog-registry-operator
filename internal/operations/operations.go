@@ -3,6 +3,10 @@ package operations
 import (
 	jfrogv1alpha1 "artifactory-secrets-rotator/api/v1alpha1"
 	"context"
+	"math/rand"
+	"time"
+
+	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,4 +51,47 @@ func ValidateObjectSpec(ctx context.Context, tokenDetails *TokenDetails, secretR
 
 	logger.Info("Artifactory host", "host", tokenDetails.ArtifactoryUrl)
 	return nil
+}
+
+// IsExist checks the labels from namespaces and secret rotator objects
+func IsExist(namespaceLabels, objectLabels map[string]string) bool {
+
+	for val, _ := range objectLabels {
+		if namespaceLabels[val] != objectLabels[val] {
+			return false
+		}
+	}
+	return true
+}
+
+// GetRandomString generates random string with size 10
+func GetRandomString() string {
+	const charset = "abcdefghijklmnopqrstuvwxyz"
+	var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+	b := make([]byte, 10)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
+}
+
+// ListSecretRotatorObjects return list of secret rotator objects
+func ListSecretRotatorObjects(cli client.Client) *jfrogv1alpha1.SecretRotatorList {
+	secretRotators := &jfrogv1alpha1.SecretRotatorList{}
+	err := cli.List(context.Background(), secretRotators, &client.ListOptions{})
+	if err != nil {
+		return &jfrogv1alpha1.SecretRotatorList{}
+	}
+	return secretRotators
+}
+
+func HandlingNamespaceEvents(cli client.Client, log logr.Logger, object *jfrogv1alpha1.SecretRotator) bool {
+	if object.Annotations == nil {
+		object.Annotations = make(map[string]string)
+	}
+	object.Annotations["uid"] = GetRandomString()
+	if err := cli.Update(context.Background(), object, &client.UpdateOptions{}); err != nil {
+		return false
+	}
+	return true
 }
