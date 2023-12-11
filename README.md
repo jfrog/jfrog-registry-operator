@@ -6,13 +6,18 @@
 [![JFrog Registry Operator](config/images/frogbot-intro.png)](#readme)
 
 [![Scanned by JFrog Registry Operator](config/images/frogbot-badge.png)](https://github.com/jfrog/jfrog-registry-operator#readme)
-[![Go Report Card](https://goreportcard.com/badge/github.com/jfrog/jfrog-registry-operator)](https://goreportcard.com/badge/github.com/jfrog/jfrog-registry-operator)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jfrog/jfrog-registry-operator)](https://goreportcard.com/report/github.com/jfrog/jfrog-registry-operator)
 [![Build status](https://github.com/jfrog/jfrog-registry-operator/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/jfrog/jfrog-registry-operator/actions/workflows/test.yml?branch=master)
 [![GitHub issues](https://img.shields.io/github/issues/jfrog/jfrog-registry-operator)](https://github.com/jfrog/jfrog-registry-operator/issues)
 
 </div>
 
-### Install operator using helm chart
+### Setting up JFrog’s AssumeRole Capabilities in AWS
+
+Follow more [here](https://jfrog.com/help/r/jfrog-installation-setup-documentation/passwordless-access-for-amazon-eks)
+for The integration of AWS Assume Role and JFrog Access presents a powerful solution. By leveraging Assume Role, AWS Identity and Access Management  (IAM) users can temporarily assume permissions to perform actions in a secure and controlled manner as well as enhance Kubernetes Secrets Management by automating token rotation, enhancing access controls, and seamlessly integrating JFrog Artifactory into the AWS environment
+
+### Install operator using helm chart - Ignore if you already installed using Setting up JFrog’s AssumeRole Capabilities in AWS
 
 ```bash
 # Get the latest [Helm release](https://github.com/helm/helm#install) Note: (only V3 is supported)
@@ -23,7 +28,7 @@ helm repo add jfrog https://charts.jfrog.io
 helm repo update
 
 # decide on the namespace and kubernetes service account name you will want to create
-export SERVICE_ACCOUNT_NAME="<service account name>" # Default name is jfrog-operator-sa"
+export SERVICE_ACCOUNT_NAME="<service account name>"
 export ANNOTATIONS="<Role annotation for service account>" # Example: eks.amazonaws.com/role-arn: arn:aws:iam::000000000000:role/jfrog-operator-role
 export NAMESPACE="jfrog-operator"
 
