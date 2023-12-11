@@ -12,12 +12,21 @@
 
 </div>
 
-### Setting up JFrog’s AssumeRole Capabilities in AWS
+## Setting up JFrog’s AssumeRole Capabilities in AWS
 
 Follow more [here](https://jfrog.com/help/r/jfrog-installation-setup-documentation/passwordless-access-for-amazon-eks)
 for The integration of AWS Assume Role and JFrog Access presents a powerful solution. By leveraging Assume Role, AWS Identity and Access Management  (IAM) users can temporarily assume permissions to perform actions in a secure and controlled manner as well as enhance Kubernetes Secrets Management by automating token rotation, enhancing access controls, and seamlessly integrating JFrog Artifactory into the AWS environment
 
-### Install operator using helm chart - Ignore if you already installed using Setting up JFrog’s AssumeRole Capabilities in AWS
+AssumeRole JFrog Architecture & Deployment
+
+The diagram below shows the basic architecture of how AssumeRole integrates with JFrog Access to provide enhanced access control:
+
+![image](./config/images/secretrotator.png)
+
+If you are interested in making the move from vulnerable manual secret handling to secure automated secret management, then your journey towards a more secure and seamless containerized future begins here. See how quickly this powerful capability can be deployed by checking out our step-by-step installation and configuration guide [Insert link to Step-by-Step Guide on the KB here ].
+
+
+## Install operator using helm chart - Ignore if you already installed using Setting up JFrog’s AssumeRole Capabilities in AWS
 
 ```bash
 # Get the latest [Helm release](https://github.com/helm/helm#install) Note: (only V3 is supported)
@@ -69,7 +78,7 @@ Apply the secretrotator mainfest:
 kubectl apply -f /charts/jfrog-registry-operator/examples/secretrotator.yaml -n ${NAMESPACE}
 ```
 
-#### Uninstalling JFrog Secret Rotator operator
+### Uninstalling JFrog Secret Rotator operator
 
 ```shell
 # uninstall secretrotator using the following command
