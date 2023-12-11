@@ -6,8 +6,8 @@
 [![JFrog Registry Operator](config/images/frogbot-intro.png)](#readme)
 
 [![Scanned by JFrog Registry Operator](config/images/frogbot-badge.png)](https://github.com/jfrog/jfrog-registry-operator#readme)
-[![Go Report Card](https://goreportcard.com/badge/github.com/jfrog/jfrog-registry-operator)](https://goreportcard.com/report/github.com/jfrog/jfrog-registry-operator)
-[![Build status](https://github.com/jfrog/jfrog-registry-operator/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/jfrog/jfrog-registry-operator/actions/workflows/test.yml?branch=main)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jfrog/jfrog-registry-operator)](https://goreportcard.com/badge/github.com/jfrog/jfrog-registry-operator)
+[![Build status](https://github.com/jfrog/jfrog-registry-operator/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/jfrog/jfrog-registry-operator/actions/workflows/test.yml?branch=master)
 [![GitHub issues](https://img.shields.io/github/issues/jfrog/jfrog-registry-operator)](https://github.com/jfrog/jfrog-registry-operator/issues)
 
 </div>
@@ -31,7 +31,7 @@ export NAMESPACE="jfrog-operator"
 helm upgrade --install secretrotator jfrog/jfrog-registry-operator --set "serviceAccount.name=${SERVICE_ACCOUNT_NAME}" --set serviceAccount.annotations=${ANNOTATIONS}  -n ${NAMESPACE}
 ```
 
-Once operator is in running state, configure artifactoryUrl, refreshTime, namespaceSelector and secretMetadata in [secretrotator.yaml](https://github.com/jfrog/jfrog-registry-operator/blob/main/charts/jfrog-registry-operator/examples/secretrotator.yaml)
+Once operator is in running state, configure artifactoryUrl, refreshTime, namespaceSelector and secretMetadata in [secretrotator.yaml](https://github.com/jfrog/jfrog-registry-operator/blob/master/charts/jfrog-registry-operator/examples/secretrotator.yaml)
 
 Sample Manifest:
 
@@ -71,7 +71,7 @@ kubectl apply -f /charts/jfrog-registry-operator/examples/secretrotator.yaml -n 
 helm uninstall secretrotator -n ${NAMESPACE}
 
 # uninstall secretrotator object (path should be pointing to secretrotator CR yaml)
-kubectl delete -f [secretrotator.yaml](https://github.com/jfrog/jfrog-registry-operator/blob/main/charts/jfrog-registry-operator/examples/secretrotator.yaml) -n ${NAMESPACE}
+kubectl delete -f [secretrotator.yaml](https://github.com/jfrog/jfrog-registry-operator/blob/master/charts/jfrog-registry-operator/examples/secretrotator.yaml) -n ${NAMESPACE}
 
 # remove CRD from cluster
 kubectl delete crd secretrotators.apps.jfrog.com
@@ -90,13 +90,16 @@ kubectl get po -n ${NAMESPACE}
 kubectl get SecretRotator
 ```
 
-## Monitoring operator
+## 🤖 Monitoring operator
 
 Follow [monitoring setup docs](./config/monitoring/).
 
-## How to contribute
-1. Fork and clone the repo
-2. Add your changes, make sure you update new specs by running `make generate` and `make manifests`
-3. Run locally : `make install`
-4. Apply CR(`kubectl apply -f config/samples/jfrog_v1alpha1_secretrotator.yaml`) and check application is working as expected
-4. Once changes are tested raise a PR, [Ref](https://docs.github.com/en/desktop/working-with-your-remote-repository-on-github-or-github-enterprise/creating-an-issue-or-pull-request-from-github-desktop)
+## 🔥 Reporting issues
+
+Please help us improve Frogbot by [reporting issues](https://github.com/jfrog/jfrog-registry-operator/issues/new/choose) you encounter.
+
+<div id="contributions"></div>
+
+## 💻 Contributions
+
+We welcome pull requests from the community. To help us improve this project, please read our [Contribution](./CONTRIBUTING.md#-guidelines) guide.
