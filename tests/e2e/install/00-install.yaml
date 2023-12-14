@@ -1,0 +1,8 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: echo "installing operator in $NAMESPACE"
+  - command: echo "Installing"
+  - command: helm upgrade --install secretrotator --set "serviceAccount.name=test" --namespace $NAMESPACE ../../../charts/jfrog-registry-operator/ -f customvalues.yaml
+  - command: sleep 5
+timeout: 600
