@@ -14,12 +14,13 @@
 
 ## Setting up JFrog’s AssumeRole Capabilities in AWS
 
-Follow more [here](https://jfrog.com/help/r/jfrog-installation-setup-documentation/passwordless-access-for-amazon-eks)
-for The integration of AWS Assume Role and JFrog Access presents a powerful solution. By leveraging Assume Role, AWS Identity and Access Management  (IAM) users can temporarily assume permissions to perform actions in a secure and controlled manner as well as enhance Kubernetes Secrets Management by automating token rotation, enhancing access controls, and seamlessly integrating JFrog Artifactory into the AWS environment
+Follow the [official documentation](https://jfrog.com/help/r/jfrog-installation-setup-documentation/passwordless-access-for-amazon-eks) for detailed instructions on detailed information and AWS configuration required to run the JFrog Registry Operator.
 
-AssumeRole JFrog Architecture & Deployment
+The integration of AWS Assume Role and JFrog Access presents a powerful solution that enables AWS Identity and Access Management  (IAM) users to temporarily assume permissions to perform actions in a secure and controlled manner. The solution enhances Kubernetes Secrets Management by automating token rotation, enhancing access controls, and seamlessly integrating JFrog Artifactory into the AWS environment
 
-The diagram below shows the basic architecture of how AssumeRole integrates with JFrog Access to provide enhanced access control:
+### AssumeRole JFrog Architecture & Deployment
+
+The following diagram shows the basic architecture of how AssumeRole integrates with JFrog Access to provide enhanced access control:
 
 ![image](./config/images/secretrotator.png)
 
@@ -45,7 +46,7 @@ export NAMESPACE="jfrog-operator"
 helm upgrade --install secretrotator jfrog/jfrog-registry-operator --set "serviceAccount.name=${SERVICE_ACCOUNT_NAME}" --set serviceAccount.annotations=${ANNOTATIONS}  -n ${NAMESPACE}
 ```
 
-Once operator is in running state, configure artifactoryUrl, refreshTime, namespaceSelector and secretMetadata in [secretrotator.yaml](https://github.com/jfrog/jfrog-registry-operator/blob/master/charts/jfrog-registry-operator/examples/secretrotator.yaml)
+Once operator is in running state, configure `artifactoryUrl`, `refreshTime`, `namespaceSelector`, and `secretMetadata` in [secretrotator.yaml](https://github.com/jfrog/jfrog-registry-operator/blob/master/charts/jfrog-registry-operator/examples/secretrotator.yaml)
 
 Sample Manifest:
 
