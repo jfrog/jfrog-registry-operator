@@ -43,7 +43,7 @@ export ANNOTATIONS="<Role annotation for service account>" # Example: eks.amazon
 export NAMESPACE="jfrog-operator"
 
 # install JFrog secret rotator operator
-helm upgrade --install secretrotator jfrog/jfrog-registry-operator --set "serviceAccount.name=${SERVICE_ACCOUNT_NAME}" --set serviceAccount.annotations=${ANNOTATIONS}  -n ${NAMESPACE}
+helm upgrade --install secretrotator jfrog/jfrog-registry-operator --set "serviceAccount.name=${SERVICE_ACCOUNT_NAME}" --set serviceAccount.annotations=${ANNOTATIONS}  --namespace  ${NAMESPACE} --create-namespace
 ```
 
 Once operator is in running state, configure `artifactoryUrl`, `refreshTime`, `namespaceSelector`, and `secretMetadata` in [secretrotator.yaml](https://github.com/jfrog/jfrog-registry-operator/blob/master/charts/jfrog-registry-operator/examples/secretrotator.yaml)
