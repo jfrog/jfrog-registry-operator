@@ -1,7 +1,7 @@
 
 <div align="center">
 
-# JFrog Registry Operator
+# JFrog Registry Operator 
 
 [![JFrog Registry Operator](config/images/frogbot-intro.png)](#readme)
 
