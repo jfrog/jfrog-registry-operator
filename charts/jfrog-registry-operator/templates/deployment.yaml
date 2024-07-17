@@ -108,8 +108,6 @@ spec:
         {{- include "common.tplvalues.render" (dict "value" .Values.sidecars "context" $) | nindent 8 }}
         {{- end }}
       volumes:
-        - name: jfrog-registry-operator-data
-          emptyDir: {}
   {{- if not (contains "data" (quote .Values.persistence.volumes)) }}
   {{- if not .Values.persistence.enabled }}
         - name: data

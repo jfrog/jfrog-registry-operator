@@ -1,0 +1,10 @@
+apiVersion: v1
+stringData:
+  # ca.crt: |
+
+  # cert.pem: |
+
+kind: Secret
+metadata:
+  name: certs
+type: Opaque

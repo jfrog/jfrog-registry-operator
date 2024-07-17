@@ -4,6 +4,7 @@ import (
 	jfrogv1alpha1 "artifactory-secrets-rotator/api/v1alpha1"
 	"context"
 	"math/rand"
+	"os"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -50,6 +51,7 @@ func ValidateObjectSpec(ctx context.Context, tokenDetails *TokenDetails, secretR
 	}
 
 	logger.Info("Artifactory host", "host", tokenDetails.ArtifactoryUrl)
+
 	return nil
 }
 
@@ -94,4 +96,42 @@ func HandlingNamespaceEvents(cli client.Client, log logr.Logger, object *jfrogv1
 		return false
 	}
 	return true
+}
+
+// FileExists method is checking for file is located or not in directory
+func FileExists(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
+}
+
+// CreateFile creating files in provided path, with given content
+func CreateFile(filePath, content string) error {
+	file, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = file.WriteString(content)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// CreateDir function to execute the program and create directory
+func CreateDir(directoryname string) error {
+	// Check if the directory exists
+	if _, err := os.Stat(directoryname); os.IsExist(err) {
+		return nil
+	}
+	err := os.MkdirAll(directoryname, os.ModePerm) //create a directory and give it required permissions
+	if err != nil {
+		return err
+	}
+	return nil
 }

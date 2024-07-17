@@ -1,7 +1,9 @@
 package resource
 
 import (
+	"artifactory-secrets-rotator/api/v1alpha1"
 	jfrogv1alpha1 "artifactory-secrets-rotator/api/v1alpha1"
+	"artifactory-secrets-rotator/internal/operations"
 	tokenType "artifactory-secrets-rotator/internal/operations"
 	"context"
 	"encoding/base64"
@@ -25,6 +27,7 @@ func IsSecretOwnedBy(secret *v1.Secret, secretOperatorName string) bool {
 
 	return owner != nil && owner.APIVersion == jfrogv1alpha1.GroupVersion.String() && owner.Kind == jfrogv1alpha1.SecretKind && owner.Name == secretOperatorName
 }
+
 func GetSecret(ctx context.Context, namespace, secretName string, k8sClient client.Client) (*v1.Secret, error) {
 	// Should not use esv1beta1.ExternalSecret since we specify builder.OnlyMetadata and cache only metadata
 	secret := &v1.Secret{}
@@ -137,6 +140,35 @@ func CreateOrUpdateSecret(req ctrl.Request, ctx context.Context, tokenDetails *t
 		// Error reading the object - requeue the request.
 		logger.Error(err, "Failed to update SecretRotator")
 		return err
+	}
+	return nil
+}
+
+// HandleCerts method copies certificates into the container
+func HandleCerts(ctx context.Context, namespace, secretName string, secretRotatorName string, k8sClient client.Client) error {
+	logger := log.FromContext(ctx)
+
+	// Reading secret for certificates
+	secret, err := GetSecret(ctx, namespace, secretName, k8sClient)
+	if err != nil {
+		return err
+	}
+
+	// HandleCerts method copies certificates into the container
+	err = operations.CreateDir(v1alpha1.CustomCertificatePath + secretRotatorName)
+	if err != nil {
+		return err
+	}
+
+	// Based on passed certificates in secret, files will be created in container
+	for key, encodedValue := range secret.Data {
+		if "/"+key == v1alpha1.CaPem || "/"+key == v1alpha1.CertPem || "/"+key == v1alpha1.KeyPem || "/"+key == v1alpha1.TlsKey || "/"+key == v1alpha1.TlsCrt || "/"+key == v1alpha1.TlsCa {
+			if err := operations.CreateFile(v1alpha1.CustomCertificatePath+secretRotatorName+"/"+key, string(encodedValue)); err != nil {
+				return err
+			}
+		} else {
+			logger.Error(err, "Key not supported. Supported certificate keys in secret are cert.pem, key.pem, ca.pem, tls.crt, tls.key and ca.crt")
+		}
 	}
 	return nil
 }

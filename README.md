@@ -24,8 +24,7 @@ The following diagram shows the basic architecture of how AssumeRole integrates 
 
 ![image](./config/images/secretrotator.png)
 
-If you are interested in making the move from vulnerable manual secret handling to secure automated secret management, then your journey towards a more secure and seamless containerized future begins here. See how quickly this powerful capability can be deployed by checking out our step-by-step installation and configuration guide [Insert link to Step-by-Step Guide on the KB here ].
-
+If you are interested in making the move from vulnerable manual secret handling to secure automated secret management, then your journey towards a more secure and seamless containerized future begins here. See how quickly this powerful capability can be deployed by checking out our [step-by-step installation and configuration guide](https://jfrog.com/help/r/jfrog-installation-setup-documentation/passwordless-access-for-amazon-eks).
 
 ## Install operator using helm chart - Ignore if you already installed using Setting up JFrog’s AssumeRole Capabilities in AWS
 
@@ -71,6 +70,12 @@ spec:
       annotationKey: annotationValue
     labels:
       labelName: labelValue
+  security:
+    enabled: false
+    secretNamespace:
+    ## NOTE: You can provide either a ca.pem or ca.crt. But make sure that key needs to same as ca.crt or ca.pem in secret
+    certificateSecretName:
+    insecureSkipVerify: false
 ```
 
 Apply the secretrotator mainfest:
