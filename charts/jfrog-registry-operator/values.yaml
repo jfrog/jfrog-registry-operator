@@ -8,7 +8,7 @@ global:
 image:
   registry: releases-docker.jfrog.io
   repository: jfrog/jfrog-registry-operator
-  tag: 1.0.0
+  tag: 1.3.0
 
   pullPolicy: IfNotPresent
   # pullSecrets:
@@ -216,3 +216,6 @@ initContainers:
     tag: 9.2.717
     pullPolicy: IfNotPresent
     pullSecrets: []
+
+serviceMonitor:
+  enabled: false

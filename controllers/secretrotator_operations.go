@@ -49,6 +49,10 @@ func (r *SecretRotatorReconciler) InitializeResource(ctx context.Context, tokenD
 		return err
 	}
 
+	// HandleCerts method copies certificates into the container
+	if err := resource.HandleCerts(ctx, secretRotator.Spec.Security.SecretNamespace, secretRotator.Spec.Security.CertificateSecretName, secretRotator.Name, r.Client); err != nil {
+		return err
+	}
 	return nil
 }
 
