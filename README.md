@@ -87,13 +87,13 @@ kubectl apply -f /charts/jfrog-registry-operator/examples/secretrotator.yaml -n 
 ### Uninstalling JFrog Secret Rotator operator
 
 ```shell
-# uninstall secretrotator using the following command
+# Uninstall the secretrotator using the following command
 helm uninstall secretrotator -n ${NAMESPACE}
 
-# uninstall secretrotator object (path should be pointing to secretrotator CR yaml)
-kubectl delete -f [secretrotator.yaml](https://github.com/jfrog/jfrog-registry-operator/blob/master/charts/jfrog-registry-operator/examples/secretrotator.yaml) -n ${NAMESPACE}
+# Uninstall the secretrotator object (path should be pointing to the secretrotator.yaml)
+kubectl delete -f secretrotator.yaml -n ${NAMESPACE}
 
-# remove CRD from cluster
+# Remove the CRD from the cluster
 kubectl delete crd secretrotators.apps.jfrog.com
 ```
 
