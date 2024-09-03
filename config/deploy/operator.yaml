@@ -67,7 +67,7 @@ spec:
           - ./operator
         args:
         - --leader-elect
-        image: releases-docker.jfrog.io/jfrog/jfrog-registry-operator:1.3.0
+        image: releases-docker.jfrog.io/jfrog/jfrog-registry-operator:1.4.1
         name: manager
         ports:
         - containerPort: 8080
