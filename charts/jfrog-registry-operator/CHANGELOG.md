@@ -1,6 +1,9 @@
 # JFrog Secret Rotator Operator Chart Changelog
 All changes to this chart will be documented in this file.
 
+## [1.4.1] - Sept 03, 2024
+* Release of jfrog-registry-operator `1.4.1`
+
 ## [1.3.0] - Jul 17, 2024
 * Release of jfrog-registry-operator `1.3.0`
 
