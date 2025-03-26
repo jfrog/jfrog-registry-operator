@@ -84,10 +84,22 @@ podAntiAffinityPreset: soft
 ## @param podSecurityContext.runAsUser User ID for the service user running the pod
 ##
 podSecurityContext:
-  runAsNonRoot: true
   enabled: true
+  runAsNonRoot: true
   fsGroup: 1065
   runAsUser: 1065
+
+
+containerSecurityContext:
+  enabled: true
+  runAsNonRoot: true
+  privileged: false
+  readOnlyRootFilesystem: false
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+  seccompProfile:
+    type: "RuntimeDefault"
 
 resources: {}
   ## Example:
