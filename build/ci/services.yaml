@@ -1,6 +1,6 @@
 ---
 services:
-  artifactory_secrets_rotator_operator:
+  jfrog_registry_rotator_operator:
     serviceShortName: jfop
     property: jfrog.operator.version
     group: com.jfrog.operator
@@ -14,12 +14,13 @@ services:
       go: go-releases-local
     orderedPaths:
       - charts/jfrog-registry-operator
+      - .
     exclude_monorepo: true
     jiraProjectKeys:
       - INST
     bitBucket:
-      projectKey: JFROG
-      repoSlug: artifactory
+      projectKey: INST
+      repoSlug: jfrog-registry-operator
     distributeArtifacts:
       - type: helm
         flavors:

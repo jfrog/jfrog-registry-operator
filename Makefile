@@ -130,7 +130,7 @@ docker-buildx: test operator ## Build and push docker image for the manager for 
 	- docker buildx create --name mybuilder --driver-opt 'image=moby/buildkit:v0.12.1-rootless' #todo turn --driver-opt into optional/remove, this fixes a colima issue
 	docker buildx use mybuilder
 	docker buildx create --name mybuilder --use || true
-	docker buildx build --no-cache --platform linux/arm64,linux/amd64 --build-arg UBI_MICRO="9.2.13" --build-arg UBI_MINIMAL="9.2.717" -t ${IMAGE_TAG_BASE} -f "Dockerfile" --metadata-file=build-metadata-operator  --push .
+	docker buildx build --no-cache --platform linux/arm64,linux/amd64 --build-arg UBI_MICRO="9.4.15" --build-arg UBI_MINIMAL="9.4.1227" -t ${IMAGE_TAG_BASE} -f "Dockerfile" --metadata-file=build-metadata-operator  --push .
 	- rm -rf build-metadata-operator
 	- docker buildx rm mybuilder
 
@@ -226,7 +226,7 @@ build-docker-arm64-local: build-operator-linux-arm64
 ##@ Build Operator multiarch docker image.
 .PHONY: build-operator-docker
 build-operator-docker:
-	@.jfrog-pipelines/build/build-docker.sh "operator" "${OPERATOR_IMAGE_NAME}" "${PROJECT_DIR}"
+	@build/build-docker.sh "operator" "${OPERATOR_IMAGE_NAME}" "${PROJECT_DIR}"
 
 ## build-operator-linux-amd64
 .PHONY: build-operator-linux-amd64

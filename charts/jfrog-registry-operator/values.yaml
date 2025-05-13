@@ -89,6 +89,17 @@ podSecurityContext:
   fsGroup: 1065
   runAsUser: 1065
 
+containerSecurityContext:
+  enabled: true
+  runAsNonRoot: true
+  privileged: false
+  readOnlyRootFilesystem: false
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+  seccompProfile:
+    type: "RuntimeDefault"
+
 resources: {}
   ## Example:
   ## limits:

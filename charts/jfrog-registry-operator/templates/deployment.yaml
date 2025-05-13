@@ -67,12 +67,12 @@ spec:
           image: {{ template "jfrog-registry-operator.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
           resources: {{- toYaml .Values.resources | nindent 12 }}
-          {{- if .Values.containerSecurityContext }}
           ports:
           - containerPort: 8080
           - containerPort: 8081
           - containerPort: 9443
-          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          {{- if .Values.containerSecurityContext.enabled }}
+          securityContext: {{- omit .Values.containerSecurityContext "enabled" | toYaml | nindent 12 }}
           {{- end }}
           {{- with .Values.lifecycle }}
           lifecycle:
