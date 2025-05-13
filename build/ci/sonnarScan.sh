@@ -2,8 +2,8 @@
 
 set -e
 
-export PROJECT_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../../.. && pwd)"
-source "${PROJECT_ROOT_DIR}/.jfrog-pipelines/build/ci/scripts/runSonarScannerGeneric.sh"
+export PROJECT_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
+source "${PROJECT_ROOT_DIR}/build/ci/scripts/runSonarScannerGeneric.sh"
 
 SONAR_PROJECT_BASE_DIR="${SONAR_PROJECT_BASE_DIR:-}"
 
