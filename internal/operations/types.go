@@ -5,6 +5,22 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+
+	"artifactory-secrets-rotator/api/v1alpha1"
+)
+
+// Secret Info
+const (
+	// Secret types
+	SecretTypeDocker  = "docker"
+	SecretTypeGeneric = "generic"
+
+	// Generic secret keys
+	GenericSecretUser  = "user"
+	GenericSecretToken = "token"
+
+	// Docker secret key
+	DockerSecretJSON = ".dockerconfigjson"
 )
 
 // AccessResponse JFrog token response
@@ -19,16 +35,19 @@ type AccessResponse struct {
 
 // TokenDetails holding resource object token details
 type TokenDetails struct {
-	Username              string
-	Token                 string
-	ArtifactoryUrl        string
-	SecretName            string
-	NamespaceSelector     labels.Selector
-	RequeueInterval       time.Duration
-	NamespaceList         v1.NamespaceList
-	FailedNamespaces      map[string]error
-	ProvisionedNamespaces []string
-	TTLInSeconds          float64
+	Username       string
+	Token          string
+	ArtifactoryUrl string
+	// SecretName is optional in 2.x and will be depreciate in next upcoming releases
+	SecretName                string
+	GeneratedSecrets          []v1alpha1.GeneratedSecret
+	NamespaceSelector         labels.Selector
+	RequeueInterval           time.Duration
+	NamespaceList             v1.NamespaceList
+	FailedNamespaces          map[string]error
+	ProvisionedNamespaces     []string
+	TTLInSeconds              float64
+	SecretManagedByNamespaces map[string][]string
 }
 
 // ReconcileError reconcile error struct

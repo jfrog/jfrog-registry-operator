@@ -1,18 +1,18 @@
 package controllers
 
 import (
-	jfrogv1alpha1 "artifactory-secrets-rotator/api/v1alpha1"
+	"artifactory-secrets-rotator/api/v1alpha1"
 	"artifactory-secrets-rotator/internal/handler"
-	operations "artifactory-secrets-rotator/internal/operations"
-	resource "artifactory-secrets-rotator/internal/resource"
+	"artifactory-secrets-rotator/internal/operations"
+	"artifactory-secrets-rotator/internal/resource"
+	"context"
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	"context"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -23,20 +23,18 @@ import (
 )
 
 // InitializeResource initializes the secret rotator object and validates specs
-func (r *SecretRotatorReconciler) InitializeResource(ctx context.Context, tokenDetails *operations.TokenDetails, secretRotator *jfrogv1alpha1.SecretRotator, req ctrl.Request) error {
-
-	// if this is the first secret we are updating this reconciliation, lets get a new token
+func (r *SecretRotatorReconciler) InitializeResource(ctx context.Context, tokenDetails *operations.TokenDetails, secretRotator *v1alpha1.SecretRotator, req ctrl.Request) error {
+	// Handle conditions for the secret rotator
 	if err := r.HandleConditions(ctx, secretRotator, req); err != nil {
 		return err
 	}
 
-	// Let's add a finalizer. Then, we can define some operations which should
-	// occurs before the custom resource to be deleted.
+	// Add a finalizer to handle cleanup before deletion
 	if err := r.HandleFinalizers(ctx, secretRotator); err != nil {
 		return err
 	}
 
-	// if this is the first secret we are updating this reconciliation, lets get a new token
+	// Check if the secret rotator is marked for deletion
 	if err := r.SecretRotatorChecker(ctx, secretRotator, req); err != nil {
 		return err
 	}
@@ -44,14 +42,13 @@ func (r *SecretRotatorReconciler) InitializeResource(ctx context.Context, tokenD
 	p := client.MergeFrom(secretRotator.DeepCopy())
 	defer r.DeferPatch(ctx, secretRotator, p)
 
-	// ValidateObjectSpec method validates CR spec is correct
+	// Validate the SecretRotator spec
 	if err := operations.ValidateObjectSpec(ctx, tokenDetails, secretRotator, r.Client); err != nil {
 		return err
 	}
 
-	// HandleCerts method copies certificates into the container
+	// Handle certificates if security is enabled and verification is not skipped
 	if secretRotator.Spec.Security.Enabled && !secretRotator.Spec.Security.InsecureSkipVerify {
-		// HandleCerts method copies certificates into the container
 		if err := resource.HandleCerts(ctx, secretRotator.Spec.Security.SecretNamespace, secretRotator.Spec.Security.CertificateSecretName, secretRotator.Name, r.Client); err != nil {
 			return err
 		}
@@ -59,53 +56,110 @@ func (r *SecretRotatorReconciler) InitializeResource(ctx context.Context, tokenD
 	return nil
 }
 
-// ManagingSecrets is validating the desired state versus the actual state of secrets and creating or updating secrets.
-func (r *SecretRotatorReconciler) ManagingSecrets(ctx context.Context, tokenDetails *operations.TokenDetails, secretRotator *jfrogv1alpha1.SecretRotator, req ctrl.Request) error {
+// ManagingSecrets validates the desired state versus the actual state of secrets and creates or updates secrets.
+func (r *SecretRotatorReconciler) ManagingSecrets(ctx context.Context, tokenDetails *operations.TokenDetails, secretRotator *v1alpha1.SecretRotator, req ctrl.Request) error {
+	logger := log.FromContext(ctx)
 
-	// It is checking namespaces and deleting our secrets from namespaces that are no lnger selected through the namespace selector
-	tokenDetails.FailedNamespaces = resource.DeleteOutdatedSecrets(ctx, tokenDetails.NamespaceList, tokenDetails.SecretName, secretRotator.Name, secretRotator.Status.ProvisionedNamespaces, r.Client)
+	// Delete outdated secrets from namespaces no longer selected
+	tokenDetails.FailedNamespaces = resource.DeleteOutdatedSecrets(ctx, tokenDetails, secretRotator.Name, secretRotator.Status.ProvisionedNamespaces, r.Client)
 	tokenDetails.RequeueInterval = r.RequeueInterval
+	skippedSecrets := make(map[string]string, 0)
+	failedSecrets := []string{}
+	tokenDetails.SecretManagedByNamespaces = make(map[string][]string)
 
 	for _, namespace := range tokenDetails.NamespaceList.Items {
+		// Iterate over generated secrets, which includes secrets from SecretRotatorSpec.SecretName (appended in ValidateObjectSpec)
+		for _, gSecret := range tokenDetails.GeneratedSecrets {
 
-		// GetSecret retrieves the provided secret and returns a secret object.
-		existingSecret, err := resource.GetSecret(ctx, namespace.Name, tokenDetails.SecretName, r.Client)
-		if err != nil && !apierrors.IsNotFound(err) {
-			r.Log.Error(err, "will jump to next namespace, could not get existing Secret", "namespace", namespace)
-			tokenDetails.FailedNamespaces[namespace.Name] = err
-			continue
+			existingSecret, err := resource.GetSecret(ctx, namespace.Name, gSecret.SecretName, r.Client)
+			if err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "Could not get existing secret, skipping namespace", "secretType", gSecret.SecretType, "secret", gSecret.SecretName, "namespace", namespace.Name)
+				failedSecrets = append(failedSecrets, fmt.Sprintf("%s (%s) Reason: not found, ", gSecret.SecretName, gSecret.SecretType))
+				skippedSecrets[gSecret.SecretName] = namespace.Name
+				continue
+			}
+
+			if err == nil && !resource.IsSecretOwnedBy(existingSecret, secretRotator.Name) {
+				logger.Info("Secret is not owned by this SecretRotator, delete it manually if you want this operator to control it", "secretType", gSecret.SecretType, "secret", gSecret.SecretName, "namespace", namespace.Name)
+				failedSecrets = append(failedSecrets, fmt.Sprintf("%s (%s) Reason: not owned by secretrotator, ", gSecret.SecretName, gSecret.SecretType))
+				skippedSecrets[gSecret.SecretName] = namespace.Name
+				continue
+			}
 		}
 
-		if err == nil && !resource.IsSecretOwnedBy(existingSecret, secretRotator.Name) {
-			r.Log.Info("secret is not owned by us, delete it manually if you want this operator to control it")
-			tokenDetails.FailedNamespaces[namespace.Name] = fmt.Errorf("secret is not owned by us")
-			continue
-		}
-
-		// if this is the first secret we are updating this reconciliation, lets get a new token
+		// Fetch a new token for this reconciliation
 		if err := handler.HandlingToken(ctx, tokenDetails, secretRotator, r.Recorder); err != nil {
+			logger.Error(err, "Failed to handle token", "namespace", namespace.Name)
 			return err
 		}
 
-		// CreateOrUpdateSecret handling secrets with new or latest token
-		if err := resource.CreateOrUpdateSecret(req, ctx, tokenDetails, secretRotator, namespace, r.Client, r.Scheme); err != nil {
-			r.Log.Error(err, "failed to create or update secret")
-			tokenDetails.FailedNamespaces[namespace.Name] = err
-			continue
+		// Create or update secrets
+		for _, gSecret := range tokenDetails.GeneratedSecrets {
+			value, isExist := skippedSecrets[gSecret.SecretName]
+			if isExist || value == namespace.Name {
+				continue
+			}
+			if err := resource.CreateOrUpdateSecrets(req, ctx, tokenDetails, secretRotator, namespace, r.Client, r.Scheme, gSecret.SecretName, gSecret.SecretType); err != nil {
+				logger.Error(err, "Failed to create or update secret", "secretType", gSecret.SecretType, "secret", gSecret.SecretName, "namespace", namespace.Name)
+				failedSecrets = append(failedSecrets, fmt.Sprintf("%s (%s) Reason: failed in create/update", gSecret.SecretName, gSecret.SecretType))
+				continue
+			}
+			tokenDetails.SecretManagedByNamespaces[namespace.Name] = append(tokenDetails.SecretManagedByNamespaces[namespace.Name], gSecret.SecretName)
+		}
+		if len(failedSecrets) > 0 {
+			message := fmt.Errorf("Unable to manage secrets %s in namespace %s", strings.Join(failedSecrets, " and "), namespace.Name)
+			tokenDetails.FailedNamespaces[namespace.Name] = message
+			failedSecrets = []string{}
 		}
 
+		// Delete outdated generated secrets from the cluster if they are not present in the current configuration
+		if len(secretRotator.Status.SecretManagedByNamespaces) > 0 {
+			err := operations.DeleteOutdatedGeneratedSecrets(ctx, tokenDetails, secretRotator, r.Client)
+			if err != nil {
+				return err
+			}
+		}
+		skippedSecrets = map[string]string{}
+		// Mark namespace as provisioned if secrets are successfully created/updated
 		tokenDetails.ProvisionedNamespaces = append(tokenDetails.ProvisionedNamespaces, namespace.Name)
+		logger.Info("Successfully managed secrets for namespace", "namespace", namespace.Name)
 	}
+
 	return nil
 }
 
-// UpdateStatus update the custom resource status
-func (r *SecretRotatorReconciler) UpdateStatus(ctx context.Context, tokenDetails *operations.TokenDetails, secretRotator *jfrogv1alpha1.SecretRotator) error {
+// UpdateStatus updates the custom resource status
+func (r *SecretRotatorReconciler) UpdateStatus(ctx context.Context, tokenDetails *operations.TokenDetails, secretRotator *v1alpha1.SecretRotator) error {
+	// Collect docker and generic secret names
+	var dockerSecretNames []string
+	var genericSecretNames []string
+	secretNames := []string{}
 
-	// The following implementation will update the status after reconciliation completed
-	meta.SetStatusCondition(&secretRotator.Status.Conditions, metav1.Condition{Type: operations.TypeAvailableSecretRotator,
-		Status: metav1.ConditionTrue, Reason: "Reconciling",
-		Message: fmt.Sprintf("Updating of Secret %s in namespaces with label %s created successfully", tokenDetails.SecretName, tokenDetails.NamespaceSelector)})
+	for _, gSecret := range tokenDetails.GeneratedSecrets {
+		if gSecret.SecretType == operations.SecretTypeDocker {
+			dockerSecretNames = append(dockerSecretNames, gSecret.SecretName)
+		} else if gSecret.SecretType == operations.SecretTypeGeneric {
+			genericSecretNames = append(genericSecretNames, gSecret.SecretName)
+		}
+	}
+
+	if len(dockerSecretNames) != 0 {
+		secretNames = append(secretNames, fmt.Sprintf("%s (docker)", dockerSecretNames))
+
+	}
+	if len(genericSecretNames) != 0 {
+		secretNames = append(secretNames, fmt.Sprintf("%s (generic)", genericSecretNames))
+
+	}
+
+	// Update the status after reconciliation completed
+	message := fmt.Sprintf("Secrets %s in namespaces with label %s managed successfully, Please check if any failed namespaces are visible, in order to evaluate individual secret failures, if any.", strings.Join(secretNames, " and "), tokenDetails.NamespaceSelector)
+	meta.SetStatusCondition(&secretRotator.Status.Conditions, metav1.Condition{
+		Type:    operations.TypeAvailableSecretRotator,
+		Status:  metav1.ConditionTrue,
+		Reason:  "Reconciling",
+		Message: message,
+	})
 
 	// ToNamespaceFailures iterates through failed namespaces and returns a list with failure reason
 	secretRotator.Status.FailedNamespaces = resource.ToNamespaceFailures(tokenDetails.FailedNamespaces)
@@ -113,6 +167,7 @@ func (r *SecretRotatorReconciler) UpdateStatus(ctx context.Context, tokenDetails
 	// Sorting ProvisionedNamespaces to update in status
 	sort.Strings(tokenDetails.ProvisionedNamespaces)
 	secretRotator.Status.ProvisionedNamespaces = tokenDetails.ProvisionedNamespaces
+	secretRotator.Status.SecretManagedByNamespaces = tokenDetails.SecretManagedByNamespaces
 
 	// Update status for resource
 	if err := r.Status().Update(ctx, secretRotator); err != nil {
@@ -123,13 +178,12 @@ func (r *SecretRotatorReconciler) UpdateStatus(ctx context.Context, tokenDetails
 	return nil
 }
 
-// HandleConditions handling kubernetes conditions for secret rotator object
-func (r *SecretRotatorReconciler) HandleConditions(ctx context.Context, secretRotator *jfrogv1alpha1.SecretRotator, req ctrl.Request) error {
+// HandleConditions handles kubernetes conditions for secret rotator object
+func (r *SecretRotatorReconciler) HandleConditions(ctx context.Context, secretRotator *v1alpha1.SecretRotator, req ctrl.Request) error {
 	var err error
 
-	// Let's set the status as Unknown when no status are available
+	// Set the status as Unknown when no status is available
 	if secretRotator.Status.Conditions == nil || len(secretRotator.Status.Conditions) == 0 {
-
 		meta.SetStatusCondition(&secretRotator.Status.Conditions, metav1.Condition{Type: operations.TypeAvailableSecretRotator, Status: metav1.ConditionUnknown, Reason: "Reconciling", Message: "Starting reconciliation"})
 		if err = r.Status().Update(ctx, secretRotator); err != nil {
 			return &operations.ReconcileError{Message: fmt.Sprintf("Failed to update secretRotator status, exiting reconciliation. secret rotator: `%s`", secretRotator.Name), Cause: err}
@@ -142,11 +196,9 @@ func (r *SecretRotatorReconciler) HandleConditions(ctx context.Context, secretRo
 	return nil
 }
 
-// HandleFinalizers handling kubernetes finalizers for secret rotator object
-func (r *SecretRotatorReconciler) HandleFinalizers(ctx context.Context, secretRotator *jfrogv1alpha1.SecretRotator) error {
-
-	// Let's add a finalizer. Then, we can define some operations which should
-	// occurs before the custom resource to be deleted.
+// HandleFinalizers handles kubernetes finalizers for secret rotator object
+func (r *SecretRotatorReconciler) HandleFinalizers(ctx context.Context, secretRotator *v1alpha1.SecretRotator) error {
+	// Add a finalizer to handle cleanup before deletion
 	if !controllerutil.ContainsFinalizer(secretRotator, operations.SecretRotatorFinalizer) {
 		r.Log.Info("Adding Finalizer for secretRotator")
 		if ok := controllerutil.AddFinalizer(secretRotator, operations.SecretRotatorFinalizer); !ok {
@@ -160,21 +212,18 @@ func (r *SecretRotatorReconciler) HandleFinalizers(ctx context.Context, secretRo
 	return nil
 }
 
-// SecretRotatorChecker Check if the SecretRotator instance is marked to be deleted, which is
-// indicated by the deletion timestamp being set.
-func (r *SecretRotatorReconciler) SecretRotatorChecker(ctx context.Context, secretRotator *jfrogv1alpha1.SecretRotator, req ctrl.Request) error {
-
+// SecretRotatorChecker checks if the SecretRotator instance is marked to be deleted
+func (r *SecretRotatorReconciler) SecretRotatorChecker(ctx context.Context, secretRotator *v1alpha1.SecretRotator, req ctrl.Request) error {
 	logger := log.FromContext(ctx)
 	var err error
-	// Check if the SecretRotator instance is marked to be deleted, which is
-	// indicated by the deletion timestamp being set.
+	// Check if the SecretRotator instance is marked to be deleted
 	isSecretRotatorMarkedToBeDeleted := secretRotator.GetDeletionTimestamp() != nil
 
 	if isSecretRotatorMarkedToBeDeleted {
 		if controllerutil.ContainsFinalizer(secretRotator, operations.SecretRotatorFinalizer) {
 			logger.Info("Performing Finalizer Operations for secretRotator before delete CR")
 
-			// Let's add here a status "Downgrade" to define that this resource begin its process to be terminated.
+			// Set a "Downgrade" status to indicate the resource is being terminated
 			meta.SetStatusCondition(&secretRotator.Status.Conditions, metav1.Condition{Type: operations.TypeDegradedSecretRotator,
 				Status: metav1.ConditionUnknown, Reason: "Finalizing",
 				Message: fmt.Sprintf("Performing finalizer operations for the custom resource: %s ", secretRotator.Name)})
@@ -183,14 +232,10 @@ func (r *SecretRotatorReconciler) SecretRotatorChecker(ctx context.Context, secr
 				return &operations.ReconcileError{Message: "Failed to update SecretRotator status", Cause: err}
 			}
 
-			// Perform all operations required before remove the finalizer and allow
-			// the Kubernetes API to remove the custom resource.
+			// Perform finalizer operations
 			r.DoFinalizerOperationsForSecretRotator(secretRotator)
 
-			// Re-fetch the Custom Resource before update the status
-			// so that we have the latest state of the resource on the cluster and so that we will avoid
-			// raise the issue "the object has been modified, please apply
-			// your changes to the latest version and try again" which would re-trigger the reconciliation
+			// Re-fetch the Custom Resource to avoid conflicts
 			if err := r.Get(ctx, req.NamespacedName, secretRotator); err != nil {
 				return &operations.ReconcileError{Message: "Failed to re-fetch secretRotator", Cause: err}
 			}
@@ -203,7 +248,7 @@ func (r *SecretRotatorReconciler) SecretRotatorChecker(ctx context.Context, secr
 				return &operations.ReconcileError{Message: "Failed to update SecretRotator status", Cause: err}
 			}
 
-			r.Log.Info("Removing Finalizer for SecretRotator after successfully perform the operations")
+			r.Log.Info("Removing Finalizer for SecretRotator after successfully performing the operations")
 			if ok := controllerutil.RemoveFinalizer(secretRotator, operations.SecretRotatorFinalizer); !ok {
 				return &operations.ReconcileError{Message: "Failed to remove finalizer for SecretRotator", Cause: err}
 			}
@@ -217,14 +262,14 @@ func (r *SecretRotatorReconciler) SecretRotatorChecker(ctx context.Context, secr
 }
 
 // DeferPatch patches the status
-func (r *SecretRotatorReconciler) DeferPatch(ctx context.Context, secretRotator *jfrogv1alpha1.SecretRotator, p client.Patch) {
+func (r *SecretRotatorReconciler) DeferPatch(ctx context.Context, secretRotator *v1alpha1.SecretRotator, p client.Patch) {
 	if err := r.Status().Patch(ctx, secretRotator, p); err != nil {
 		r.Log.Error(err, "unable to patch status")
 	}
 }
 
-// DoFinalizerOperationsForSecretRotator updating k8s event
-func (r *SecretRotatorReconciler) DoFinalizerOperationsForSecretRotator(secretRotator *jfrogv1alpha1.SecretRotator) {
+// DoFinalizerOperationsForSecretRotator updates k8s event
+func (r *SecretRotatorReconciler) DoFinalizerOperationsForSecretRotator(secretRotator *v1alpha1.SecretRotator) {
 	r.Recorder.Event(secretRotator, "Warning", "Deleting", fmt.Sprintf("Custom Resource %s is being deleted from the namespace %s", secretRotator.Name, secretRotator.Namespace))
 }
 
@@ -232,8 +277,13 @@ func (r *SecretRotatorReconciler) DoFinalizerOperationsForSecretRotator(secretRo
 func (r *SecretRotatorReconciler) handleError(err error) (ctrl.Result, error) {
 	var status *operations.ReconcileError
 	if !errors.As(err, &status) {
+		// Convert non-ReconcileError to ReconcileError with default retry
 		r.Log.Error(err, "Reconcile terminated")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, &operations.ReconcileError{
+			Message: "Unexpected error during reconciliation, wait for 10 seconds",
+			Cause:   err,
+			RetryIn: 10 * time.Second,
+		}
 	}
 	if status.Cause == nil {
 		r.Log.Error(status, status.Message)
