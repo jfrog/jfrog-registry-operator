@@ -62,14 +62,13 @@ spec:
   namespaceSelector:
     matchLabels:
       kubernetes.io/metadata.name: jfrog-operator
-  secretName: token-secret
-  artifactoryUrl: ""
-  refreshTime: 30m
-  secretMetadata:
-    annotations:
-      annotationKey: annotationValue
-    labels:
-      labelName: labelValue
+  generatedSecrets:
+  - secretName: token-imagepull-secret
+    secretType: docker
+  - secretName: token-generic-secret
+    secretType: generic
+  artifactoryUrl: "artifactory.example.com"
+  refreshTime: 1m
   security:
     enabled: false
     secretNamespace:
@@ -77,6 +76,7 @@ spec:
     certificateSecretName:
     insecureSkipVerify: false
 ```
+Note: Currently spec.secretName is supported but going forward this will be deprecated soon.
 
 Apply the secretrotator mainfest:
 

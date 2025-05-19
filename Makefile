@@ -31,7 +31,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
 # jfrog.com/operator-bundle:$VERSION and jfrog.com/operator-catalog:$VERSION.
-IMAGE_TAG_BASE ?= docker.jfrog.io/jfrog/jfrog-registry-operator:1.4.1
+IMAGE_TAG_BASE ?= docker.jfrog.io/jfrog/jfrog-registry-operator:2.0.0
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
@@ -130,7 +130,7 @@ docker-buildx: test operator ## Build and push docker image for the manager for 
 	- docker buildx create --name mybuilder --driver-opt 'image=moby/buildkit:v0.12.1-rootless' #todo turn --driver-opt into optional/remove, this fixes a colima issue
 	docker buildx use mybuilder
 	docker buildx create --name mybuilder --use || true
-	docker buildx build --no-cache --platform linux/arm64,linux/amd64 --build-arg UBI_MICRO="9.4.15" --build-arg UBI_MINIMAL="9.4.1227" -t ${IMAGE_TAG_BASE} -f "Dockerfile" --metadata-file=build-metadata-operator  --push .
+	docker buildx build --no-cache --platform linux/arm64,linux/amd64 --build-arg UBI_MICRO="9.6.1745521186" --build-arg UBI_MINIMAL="9.6.1747218906" -t ${IMAGE_TAG_BASE} -f "Dockerfile" --metadata-file=build-metadata-operator  --push .
 	- rm -rf build-metadata-operator
 	- docker buildx rm mybuilder
 
@@ -152,7 +152,7 @@ CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 ## Tool Versions
-CONTROLLER_TOOLS_VERSION ?= v0.11.1
+CONTROLLER_TOOLS_VERSION ?= v0.18.0
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.

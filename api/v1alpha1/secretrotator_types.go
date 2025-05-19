@@ -47,20 +47,38 @@ type SecretRotatorSpec struct {
 	// +optional
 	SecretMetadata SecretMetadata `json:"secretMetadata"`
 
-	// SecretName holding name of the secret
+	// SecretName holding the name of a single Docker secret
+	// SecretName is optional in 2.x.x and will be deprecated in the next upcoming releases
+	// Added for backward compatibility with 1.x.x
+	// If specified, a Docker secret with this name is created in addition to any secrets defined in generatedSecrets.
+	// +optional
 	SecretName string `json:"secretName,omitempty"`
 
-	// NamespaceSelector holding selector of the namespaces
+	// GeneratedSecrets defines the secrets to be created
+	GeneratedSecrets []GeneratedSecret `json:"generatedSecrets,omitempty"`
+
+	// NamespaceSelector holding SecretRotatorList of the namespaces
 	NamespaceSelector metav1.LabelSelector `json:"namespaceSelector"`
 
 	// ArtifactoryUrl, URL of Artifactory
 	ArtifactoryUrl string `json:"artifactoryUrl,omitempty"`
 
-	// RefreshInterval The time in which the controller should reconcile it's objects and recheck namespaces for labels.
+	// RefreshInterval The time in which the controller should reconcile its objects and recheck namespaces for labels.
 	RefreshInterval *metav1.Duration `json:"refreshTime,omitempty"`
 
 	// Security holding tls/ssl certificates details
 	Security SecurityDetails `json:"security,omitempty"`
+}
+
+// GeneratedSecret defines an individual secret to be created
+type GeneratedSecret struct {
+	// SecretName holding name of the secret
+	SecretName string `json:"secretName"`
+	// SecretType specifies the type of secret (docker or generic)
+	SecretType string `json:"secretType"`
+	// Scope defines the scope of the secret (optional)
+	// +optional
+	Scope string `json:"scope,omitempty"`
 }
 
 // SecurityDetails defines details for certificates, fields are insecureSkipVerify, secret nameand enable flag.
@@ -116,6 +134,10 @@ type SecretRotatorStatus struct {
 	// ProvisionedNamespaces are the namespaces where the ClusterExternalSecret has secrets
 	// +optional
 	ProvisionedNamespaces []string `json:"provisionedNamespaces,omitempty"`
+
+	// SecretManagedByNamespaces are the secrets in the namespaces that are managed by the SecretRotator
+	// +optional
+	SecretManagedByNamespaces map[string][]string `json:"secretManagedByNamespaces,omitempty"`
 }
 
 // ExternalSecretCreationPolicy defines rules on how to create the resulting Secret.
