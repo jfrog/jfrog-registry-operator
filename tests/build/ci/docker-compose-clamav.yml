@@ -1,0 +1,16 @@
+version: "3.7"
+
+services:
+  clamscanner:
+    image: entplus.jfrog.io/docker-releases-local/clamav:${CLAM_IMAGE_TAG}
+    volumes:
+      - imagetoscanvol:/scan
+    depends_on:
+      - "imagetoscan"
+  imagetoscan:
+    image: ${CLAM_DOCKER_IMAGE}
+    entrypoint: tail -f /dev/null
+    volumes:
+      - imagetoscanvol:${CLAM_MOUNT_PATH}
+volumes:
+  imagetoscanvol:

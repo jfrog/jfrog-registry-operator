@@ -1,0 +1,19 @@
+{{- if .Values.serviceMonitor.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: jfrog-operator
+  name: jfrog-registry-operator
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  endpoints:
+  - interval: 30s
+    path: /metrics
+    port: operator
+  namespaceSelector:
+    any: true
+  selector:
+    matchLabels:
+      app: jfrog-operator
+{{- end }}

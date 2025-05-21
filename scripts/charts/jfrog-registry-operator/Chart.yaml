@@ -1,0 +1,24 @@
+apiVersion: v2
+kubeVersion: ">= 1.19.0-0"
+type: application
+name: jfrog-registry-operator
+home: https://jfrog.com/platform/
+version: 2.0.0
+appVersion: 2.x-SNAPSHOT
+dependencies:
+  - name: jfrog-common
+    version: 0.0.7
+    repository: https://charts.jfrog.io/
+description: JFrog Registry Operator to manage JFrog applications running in Kubernetes
+keywords:
+- operator
+- jfrog
+- devops
+- secret
+- rotator
+- aws
+sources:
+- https://github.com/jfrog/charts
+maintainers:
+- name: Chart Maintainers at JFrog
+icon: https://raw.githubusercontent.com/jfrog/charts/master/stable/jfrog-registry-operator/logo/jfrog-logo.png

@@ -1,0 +1,14 @@
+
+
+********************************************************************************************
+*                                                                                          *
+* JFrog secret rotator operator successfully deployed                                      *
+*                                                                                          *
+* # For secrets in your namespaces,                                                        *
+* kubectl get secrets -n  ${NAMESPACE} (Or any other namespace based on matching label)    *
+* # For operator pod in your namespace                                                     *
+* kubectl get po -n ${NAMESPACE}                                                           *
+* # For SecretRotator                                                                      *
+* kubectl get SecretRotator                                                                *
+*                                                                                          *
+********************************************************************************************

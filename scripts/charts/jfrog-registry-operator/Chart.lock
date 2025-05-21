@@ -1,0 +1,6 @@
+dependencies:
+- name: jfrog-common
+  repository: https://charts.jfrog.io/
+  version: 0.0.7
+digest: sha256:32aba790a5328787f20a8ca5817d7060e097d05811d94287ef4be267fa6c2cf6
+generated: "2023-09-13T17:52:11.918508+05:30"

@@ -1,0 +1,7 @@
+version: "3.7"
+
+services:
+  clamscanner:
+    image: docker.jfrog.io/clamav:${CLAM_IMAGE_TAG}
+    volumes:
+      - ${CLAMAV_SCAN_DIR}:/scan
