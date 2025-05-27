@@ -39,26 +39,43 @@ You need to export the following environment variables to run the Terraform conf
 Optional:
 
 export TF_VAR_namespace=<k8s-namespace>                 # Default value is jfrogoperator
-export TF_VAR_service_account=<k8s-service-account>     # Default value is jfrogoperatorsa
-export TF_VAR_aws_iam_role_name=<aws-iam-role-name>     # Default value is jfrogoperatorrole
-export TF_VAR_aws_iam_policy_name=<aws-iam-policy-name> # Default value is jfrogoperatorpolicy
+export TF_VAR_service_accounts=<k8s-service-account>     # Default value is jfrogoperatorsa
+export TF_VAR_aws_iam_role_names=<aws-iam-role-name>     # Default value is jfrogoperatorrole
+export TF_VAR_aws_iam_policy_names=<aws-iam-policy-name> # Default value is jfrogoperatorpolicy
 export TF_VAR_operator_version=<operator-version>       # Default value is latest
+export TF_VAR_service_users=<user-name>                  # Default value is admin
 
 Required:
 
 export TF_VAR_eks_cluster_name=<eks-cluster-name>
 export TF_VAR_eks_region=<aws-region>
 export TF_VAR_jfrog_url=<jfrog-artifactory-url>
-export TF_VAR_jfrog_scoped_token=<jfrog-api-token>
+export TF_VAR_jfrog_scoped_tokens=<jfrog-api-token>
+```
+
+### Example for multiple ARNs/Users:
+
+```
+export TF_VAR_namespace=demo
+export TF_VAR_aws_iam_role_names="role1,role2"
+export TF_VAR_aws_iam_policy_names="policy1,policy2"
+export TF_VAR_service_accounts="sa1,sa2"
+export TF_VAR_service_users="user1,user2"
+export TF_VAR_jfrog_scoped_tokens="token1,token2"
+export TF_VAR_eks_cluster_name=aws-operator-jfrog
+export TF_VAR_eks_region=ap-northeast-3
+export TF_VAR_jfrog_url="artifactory.jfrog.com"
+export TF_VAR_operator_version=latest
 ```
 
 4. Initialize Terraform
 
 Run the following command to initialize the Terraform configuration:
 
-`
+```
 terraform init
-`
+terraform plan
+```
 
 This will download the necessary provider plugins and set up the backend for Terraform.
 
@@ -102,15 +119,29 @@ metadata:
 spec:
   namespaceSelector:
     matchLabels:
+      kubernetes.io/metadata.name: jfrog-operator
+  generatedSecrets:
+  - secretName: token-imagepull-secret
+    secretType: docker
+  # - secretName: token-generic-secret
+  #   secretType: generic
+  artifactoryUrl: "artifactory.example.com"
       kubernetes.io/metadata.name: jfrogoperator
-  secretName: token-secret
-  artifactoryUrl: "<artifactory-url>"
   refreshTime: 30m
+  #  serviceAccount: # The default name and namespace will be the operator’s service account name and namespace
+  #    name: ""
+  #    namespace: ""
   secretMetadata:
     annotations:
       annotationKey: annotationValue
     labels:
       labelName: labelValue
+  security:
+    enabled: false
+    secretNamespace:
+    ## NOTE: You can provide either a ca.pem or ca.crt. But make sure that key needs to same as ca.crt or ca.pem in secret
+    certificateSecretName:
+    insecureSkipVerify: false
 ```
 
 9. Secret Verification
@@ -129,27 +160,32 @@ AWS Provider Configuration
 
 The AWS provider is used to interact with AWS resources such as IAM roles, policies, and external services. The region is set dynamically via the eks_region variable.
 
-Variables
+### Variables
 
-```
-namespace: The Kubernetes namespace where the operator will be deployed.
-service_account: The Kubernetes service account that will be used with the IAM role.
-eks_cluster_name: The name of the AWS EKS cluster.
-eks_region: The AWS region where the EKS cluster is located.
-jfrog_url: The URL of your JFrog Artifactory instance.
-jfrog_scoped_token: The scoped API token for JFrog Artifactory.
-aws_iam_role_name: Aws iam role name
-aws_iam_policy_name: Aws iam policy name
-operator_version: Version of jfrog registry operator helm chart
-```
+| Variable Name                 | Description                               | Format Example      |
+| ----------------------------- | ----------------------------------------- | ------------------- |
+| `TF_VAR_namespace`            | Kubernetes namespace                      | `"demo"`            |
+| `TF_VAR_aws_iam_role_names`   | IAM role names mapped to service accounts | `"role1,role2"`     |
+| `TF_VAR_aws_iam_policy_names` | IAM policy names for each role            | `"policy1,policy2"` |
+| `TF_VAR_service_accounts`     | Kubernetes service account names          | `"sa1,sa2"`         |
+| `TF_VAR_service_users`        | JFrog service user names                  | `"user1,user2"`     |
+| `TF_VAR_jfrog_scoped_tokens`  | Admin scoped tokens for JFrog users       | `"token1,token2"`   |
+| `TF_VAR_eks_cluster_name`     | Name of the EKS cluster                   | `"aws-operator-jfrog"` |
+| `TF_VAR_eks_region`           | AWS region where the EKS cluster is hosted | `"ap-northeast-3"`  |
+| `TF_VAR_jfrog_url`            | URL for the JFrog Artifactory instance    | `"artifactory.jfrog.com"` |
+| `TF_VAR_operator_version`     | Version of the JFrog operator             | `"latest"`          |
 
-Resources
- - aws_iam_openid_connect_provider: This resource sets up an OIDC provider in AWS for the EKS cluster.
- - aws_iam_role: Creates an IAM role that can be assumed by the Kubernetes service account using OIDC.
- - aws_iam_policy: Defines a policy attached to the IAM role with necessary permissions.
- - aws_iam_role_policy_attachment: Attaches the policy to the IAM role.
- - (curl_operations): Executes curl commands to configure JFrog user with the IAM ARN.
- - (curl_operations_helm): Runs Helm commands to install the JFrog Registry Operator
+
+### Resources
+| Resource Name                                            | Description                                                                           |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `aws_iam_openid_connect_provider.eks_oidc_provider`      | Creates an OpenID Connect provider in AWS IAM.                                        |
+| `aws_iam_role.aws_reg_operator_role`                     | Creates IAM roles for service accounts in the EKS cluster.                            |
+| `aws_iam_policy.aws_reg_operator_policy`                 | Creates IAM policies for each IAM role.                                               |
+| `aws_iam_role_policy_attachment.aws_operator_attachment` | Attaches IAM policies to the corresponding IAM roles.                                 |
+| `null_resource.list_length_check`                        | Validates that the number of service accounts, IAM roles, policies, and tokens match. |
+| `null_resource.curl_operations`                          | Executes curl commands to configure JFrog Platform for passwordless access to EKS.    |
+| `helm_release.jfrog_operator`                            | Deploys the JFrog registry operator Helm chart to the Kubernetes cluster.             |
 
 Troubleshooting
 

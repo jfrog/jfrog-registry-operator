@@ -3,6 +3,8 @@ package handler
 import (
 	"artifactory-secrets-rotator/api/v1alpha1"
 	jfrogv1alpha1 "artifactory-secrets-rotator/api/v1alpha1"
+	k8sClientSet "artifactory-secrets-rotator/internal/client"
+
 	operations "artifactory-secrets-rotator/internal/operations"
 	"bytes"
 	"context"
@@ -14,11 +16,15 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
+	authenticationv1 "k8s.io/api/authentication/v1"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/aws/smithy-go/ptr"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -26,52 +32,87 @@ import (
 const tokenEndpoint = "/access/api/v1/aws/token"
 
 // HandlingToken Get JFrog access token
-func HandlingToken(ctx context.Context, tokenDetails *operations.TokenDetails, secretRotator *jfrogv1alpha1.SecretRotator, recorder record.EventRecorder) error {
+func HandlingToken(ctx context.Context, tokenDetails *operations.TokenDetails, secretRotator *jfrogv1alpha1.SecretRotator, recorder record.EventRecorder, k8sClient client.Client) error {
 	logger := log.FromContext(ctx)
 
 	if tokenDetails.Token != "" {
 		logger.Info("Token already defined. skipping artifactory token creation")
 	}
-	awsRoleName := os.Getenv("AWS_ROLE_ARN")
-	awsTokenFile := os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE")
 
-	//getting AWS_ROLE_ARN from env
-	if awsRoleName == "" {
-		recorder.Eventf(secretRotator, "Warning", "Misconfiguration", "missing aws Role Name")
-		return &operations.ReconcileError{Message: "AWS_ROLE_ARN is empty", RetryIn: 1 * time.Minute}
-	}
-	//getting AWS_WEB_IDENTITY_TOKEN_FILE from env
-	if awsTokenFile == "" {
-		recorder.Event(secretRotator, "Warning", "Misconfiguration", "missing aws identity token file location")
-		return &operations.ReconcileError{Message: "AWS_WEB_IDENTITY_TOKEN_FILE env variable was empty, this might mean the service account is not annotated with Assumed role, or some other misconfiguration, the Artifactory token will not be rotated", RetryIn: 1 * time.Minute}
+	// Check if the service account name already exists
+	if secretRotator.Spec.ServiceAccount.Name == "" {
+		secretRotator.Spec.ServiceAccount.Name = tokenDetails.DefaultServiceAccountName
 	}
 
-	// getting signed request headers for AWS STS GetCallerIdentity call
-	request, err := GetSignedRequest(ctx, awsRoleName, awsTokenFile)
+	// Check if the service account namespace already exists
+	if secretRotator.Spec.ServiceAccount.Namespace == "" {
+		secretRotator.Spec.ServiceAccount.Namespace = tokenDetails.DefaultServiceAccountNamespace
+	}
+
+	// get the k8s client this is needed to get the k8s client
+	clientset, err := k8sClientSet.GetK8sClient()
+	if err != nil {
+		recorder.Eventf(secretRotator, "Warning", "Misconfiguration",
+			fmt.Sprintf("failed to initialise k8s client, error: %s", err.Error()))
+		return err
+	}
+
+	// Get Service Account details, further we will use the service account to create a token request
+	serviceAccount, err := clientset.CoreV1().ServiceAccounts(secretRotator.Spec.ServiceAccount.Namespace).Get(ctx, secretRotator.Spec.ServiceAccount.Name, metav1.GetOptions{})
+	if err != nil {
+		recorder.Eventf(secretRotator, "Warning", "Misconfiguration",
+			fmt.Sprintf("failed to get service account %s from %s namespace, error: %s", secretRotator.Spec.ServiceAccount.Name, secretRotator.Spec.ServiceAccount.Namespace, err.Error()))
+		return err
+	}
+
+	// Check if the role arn annotation exists or not, if not, it will be set for reconciliation
+	roleARN := serviceAccount.Annotations[operations.RoleARNKey]
+	if roleARN == "" {
+		logger.Error(err, "Error getting the role ARN from the service account's annotations")
+		return &operations.ReconcileError{Message: "role ARN annotation is empty", RetryIn: 1 * time.Minute}
+	}
+
+	// Create token request for the target service account
+	tokenRequest, err := clientset.CoreV1().ServiceAccounts(secretRotator.Spec.ServiceAccount.Namespace).CreateToken(
+		ctx,
+		secretRotator.Spec.ServiceAccount.Name,
+		&authenticationv1.TokenRequest{Spec: authenticationv1.TokenRequestSpec{Audiences: []string{operations.AmazonAwsSts}, ExpirationSeconds: ptr.Int64(operations.ServiceAccountExpirationSeconds)}},
+		metav1.CreateOptions{},
+	)
+	if err != nil {
+		recorder.Eventf(secretRotator, "Warning", "Misconfiguration",
+			fmt.Sprintf("failed to create token for user/service account %s from %s namespace, error: %s", secretRotator.Spec.ServiceAccount.Name, secretRotator.Spec.ServiceAccount.Namespace, err.Error()))
+		return err
+	}
+
+	// getting signed request headers for AWS STS GetCallerIdentity call and check role max session duration
+	// this is needed to get the max session duration for the role ARN
+	request, err := GetSignedRequestAndHandleRoleMaxSession(ctx, roleARN, tokenRequest.Status.Token, secretRotator.Spec.ServiceAccount.Name, secretRotator.Spec.ServiceAccount.Namespace, tokenDetails)
 	if err != nil {
 		recorder.Eventf(secretRotator, "Warning", "TokenGenerationFailure",
 			fmt.Sprintf("Error getting signed AWS credentials, error was %s", err.Error()))
 		return err
 	}
+
 	//getting max aws role session time to be used as artiactory token expiration time
-	maxTTL, err := GetMaxSession(ctx, awsRoleName)
-	if err != nil {
-		logger.Error(err, "Error getting role max session time, we will use default artifactory token expiration: 3 hours")
-		maxTTL = aws.Int32(14400)
-	} else if secretRotator.Spec.RefreshInterval == nil {
-		logger.Info("JFrog access token TTL will use AWS role Max Session Duration", "role", awsRoleName, "roleMaxSession", maxTTL)
+	maxTTL := tokenDetails.RoleMaxSessionDuration
+	if secretRotator.Spec.RefreshInterval == nil {
+		logger.Info("JFrog access token TTL will use AWS role Max Session Duration", "role", roleARN, "roleMaxSession", maxTTL)
 	}
+
+	// if the maxTTL is not set we will use the default value of 3 hours
 	tokenDetails.TTLInSeconds = float64(*maxTTL)
 	if secretRotator.Spec.RefreshInterval != nil && tokenDetails.TTLInSeconds < secretRotator.Spec.RefreshInterval.Seconds() {
 		// if the token is set to expire before reconciliation runs we will always get into token expire events
 		err = errors.New("the token TTL taken from Role max session value, is shorter then reconciliation duration set through operator refreshTime, which is a misconfiguration causing token expire events")
-		logger.Error(err, "CRITICAL MIS CONFIGURATION")
+		logger.Error(err, "CRITICAL MISS CONFIGURATION")
 		//reflect this mis misconfiguration through the operator events
 		recorder.Eventf(secretRotator, "Warning", "TokenGenerationFailure",
 			fmt.Sprintf("The token TTL taken from Role max session value (%d), is shorter then reconciliation duration set through operator refreshTime (%s), which is a misconfiguration causing token expire events",
 				*maxTTL,
 				secretRotator.Spec.RefreshInterval))
 	}
+
 	logger.Info("Generating artifactory token")
 	tokenDetails.Username, tokenDetails.Token, err = createArtifactoryToken(ctx, request, tokenDetails.ArtifactoryUrl, maxTTL, &secretRotator.Spec.Security, secretRotator.Name)
 	if err != nil {

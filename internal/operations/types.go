@@ -35,19 +35,23 @@ type AccessResponse struct {
 
 // TokenDetails holding resource object token details
 type TokenDetails struct {
-	Username       string
-	Token          string
-	ArtifactoryUrl string
 	// SecretName is optional in 2.x and will be depreciate in next upcoming releases
-	SecretName                string
-	GeneratedSecrets          []v1alpha1.GeneratedSecret
-	NamespaceSelector         labels.Selector
-	RequeueInterval           time.Duration
-	NamespaceList             v1.NamespaceList
-	FailedNamespaces          map[string]error
-	ProvisionedNamespaces     []string
-	TTLInSeconds              float64
-	SecretManagedByNamespaces map[string][]string
+	SecretName                     string
+	GeneratedSecrets               []v1alpha1.GeneratedSecret
+	NamespaceList                  v1.NamespaceList
+	FailedNamespaces               map[string]error
+	ProvisionedNamespaces          []string
+	TTLInSeconds                   float64
+	SecretManagedByNamespaces      map[string][]string
+	Username                       string
+	Token                          string
+	ArtifactoryUrl                 string
+	NamespaceSelector              labels.Selector
+	RequeueInterval                time.Duration
+	DefaultServiceAccountName      string
+	DefaultServiceAccountNamespace string
+	RoleMaxSessionDuration         *int32
+	IAMRoleAwsRegion               string
 }
 
 // ReconcileError reconcile error struct
@@ -62,9 +66,29 @@ func (r *ReconcileError) Error() string {
 }
 
 const SecretRotatorFinalizer = "apps.jfrog.com/finalizer"
+
 const (
 	// TypeAvailableSecretRotator represents the status of the Deployment reconciliation
 	TypeAvailableSecretRotator = "Available"
 	// TypeDegradedSecretRotator represents the status used when the custom resource is deleted and the finalizer operations are must to occur.
 	TypeDegradedSecretRotator = "Degraded"
+)
+
+const (
+	// AwsRegion value of AwsRoleARNKey
+	AwsRegion = "us-west-2"
+	// Default value of AwsRoleARNKey
+	AwsRoleARNKey = "eks.amazonaws.com/role-arn"
+	// Default value of RoleARNKey
+	RoleARNKey = "eks.amazonaws.com/role-arn"
+	// Default value of AmazonAwsSts
+	AmazonAwsSts = "sts.amazonaws.com"
+)
+
+const (
+	// RoleMaxSessionDuration is the default max session duration for AWS roles
+	RoleMaxSessionDuration = 10800
+
+	// ServiceAccountExpirationSeconds is the default expiration time for service account tokens
+	ServiceAccountExpirationSeconds = 3600
 )

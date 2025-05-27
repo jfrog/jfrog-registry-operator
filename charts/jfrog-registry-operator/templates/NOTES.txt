@@ -12,3 +12,24 @@
 * kubectl get SecretRotator                                                                *
 *                                                                                          *
 ********************************************************************************************
+
+{{- if and (empty .Values.exchangedServiceAccounts) (empty .Values.serviceAccount.annotations) }}
+******************************************************************************
+            IMPORTANT: STOPPED to prevent false Installation!
+Note: Make sure to pass the current .Values.serviceAccount.annotations or use external service account.
+
+If you want the installation to use an external user's service account,
+please update your service account with the required ARN annotation,
+and provide serviceAccount.name and serviceAccount.namespace in the custom resource
+
+Example to use operatpr's service Info:
+export ANNOTATIONS='eks.amazonaws.com/role-arn: arn:aws:iam::000000000000:role/jfrog-operator-role'
+Add set in helm install command: --set serviceAccount.annotations=${ANNOTATIONS}
+
+
+Example to update in Custom Resource Info:
+serviceAccount:
+  name: ""
+  namespace: ""
+******************************************************************************"
+{{- end }}

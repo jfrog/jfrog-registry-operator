@@ -7,5 +7,6 @@ testDirs:
 commands:
   - command: chmod 600 kubeconfig
   - command: helm repo add jfrog https://charts.jfrog.io
+  - command: helm repo add dev https://entplus.jfrog.io/artifactory/helm-releases-local --username ${int_entplus_deployer_user} --password ${int_entplus_deployer_apikey}
   - command: helm dep up ../../charts/jfrog-registry-operator
 timeout: 1200

@@ -31,7 +31,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
 # jfrog.com/operator-bundle:$VERSION and jfrog.com/operator-catalog:$VERSION.
-IMAGE_TAG_BASE ?= docker.jfrog.io/jfrog/jfrog-registry-operator:2.0.0
+IMAGE_TAG_BASE ?= docker.jfrog.io/jfrog/jfrog-registry-operator:2.1.0
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
@@ -204,7 +204,7 @@ catalog-build: opm ## Build a catalog image.
 ## operator
 ##@ Build multiarch operator binaries
 .PHONY: operator
-operator: build-operator-linux-amd64 build-operator-linux-arm64 
+operator: build-operator-linux-amd64 build-operator-linux-arm64
 ## clean-build
 ##@ clean the bin directory
 .PHONY: clean-build
