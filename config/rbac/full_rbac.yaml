@@ -1,0 +1,120 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jfrog-operator-sa
+  labels:
+    app.kubernetes.io/name: jfrog-registry-operator
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: rtop-jfrog-registry-operator-role
+  namespace: "jfrog-operator"
+  labels:
+    app.kubernetes.io/name: jfrog-registry-operator
+rules:
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - patch
+  - update
+  - create
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - "serviceaccounts"
+  verbs:
+  - get
+  resourceNames:
+  - jfrog-operator-sa
+- apiGroups:
+  - ""
+  resources:
+  - "serviceaccounts/token"
+  verbs:
+  - get
+  - create
+  resourceNames:
+  - jfrog-operator-sa
+- apiGroups:
+  - apps
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+- apiGroups:
+  - apps
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - apps.jfrog.com
+  resources:
+  - secretrotators
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.jfrog.com
+  resources:
+  - secretrotators/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps.jfrog.com
+  resources:
+  - secretrotators/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: rtop-jfrog-registry-operator-rolebinding
+  namespace: "jfrog-operator"
+  labels:
+    app.kubernetes.io/name: jfrog-registry-operator
+subjects:
+  - kind: ServiceAccount
+    name: jfrog-operator-sa
+    namespace: "jfrog-operator"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: rtop-jfrog-registry-operator-role

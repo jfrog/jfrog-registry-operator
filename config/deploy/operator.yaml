@@ -67,7 +67,7 @@ spec:
           - ./operator
         args:
         - --leader-elect
-        image: releases-docker.jfrog.io/jfrog/jfrog-registry-operator:1.4.2
+        image: releases-docker.jfrog.io/jfrog/jfrog-registry-operator:2.1.0
         name: manager
         ports:
         - containerPort: 8080
@@ -99,7 +99,7 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
-      serviceAccountName: controller-manager
+      serviceAccountName: jfrog-operator-sa
       terminationGracePeriodSeconds: 10
       imagePullSecrets:
           - name: entplus-secret

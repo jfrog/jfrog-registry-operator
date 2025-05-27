@@ -53,6 +53,7 @@ func (r *SecretRotatorReconciler) InitializeResource(ctx context.Context, tokenD
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -87,9 +88,8 @@ func (r *SecretRotatorReconciler) ManagingSecrets(ctx context.Context, tokenDeta
 			}
 		}
 
-		// Fetch a new token for this reconciliation
-		if err := handler.HandlingToken(ctx, tokenDetails, secretRotator, r.Recorder); err != nil {
-			logger.Error(err, "Failed to handle token", "namespace", namespace.Name)
+		// if this is the first secret we are updating this reconciliation, lets get a new token
+		if err := handler.HandlingToken(ctx, tokenDetails, secretRotator, r.Recorder, r.Client); err != nil {
 			return err
 		}
 

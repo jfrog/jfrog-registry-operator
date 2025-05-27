@@ -38,6 +38,9 @@ helm repo update
 
 # decide on the namespace and kubernetes service account name you will want to create
 export SERVICE_ACCOUNT_NAME="<service account name>"
+
+# Support for external service accounts has also been added. Users can now utilize an external service account; for this, follow the multi-user installation details relevant to external service accounts.
+# Setting SERVICE_ACCOUNT_NAME and ANNOTATIONS is optional for multi-user installations, available from release version 2.1.x.
 export ANNOTATIONS="<Role annotation for service account>" # Example: eks.amazonaws.com/role-arn: arn:aws:iam::000000000000:role/jfrog-operator-role
 export NAMESPACE="jfrog-operator"
 
@@ -45,7 +48,28 @@ export NAMESPACE="jfrog-operator"
 helm upgrade --install secretrotator jfrog/jfrog-registry-operator --set "serviceAccount.name=${SERVICE_ACCOUNT_NAME}" --set serviceAccount.annotations=${ANNOTATIONS}  --namespace  ${NAMESPACE} --create-namespace
 ```
 
-Once operator is in running state, configure `artifactoryUrl`, `refreshTime`, `namespaceSelector`, and `secretMetadata` in [secretrotator.yaml](https://github.com/jfrog/jfrog-registry-operator/blob/master/charts/jfrog-registry-operator/examples/secretrotator.yaml)
+### For multi-user installations, if multiple service accounts need to be created:
+```
+# In a multi-user scenario, please create all service accounts using the role ARN as an annotation via the Helm chart. This will also update the ClusterRole to grant the necessary permissions to each specific service account.
+
+# Create a custom-values.yaml file with service account details and then install operator.
+exchangedServiceAccounts:
+ - name: "sample-service-account"
+   namespace: "<NAMESPACE>"
+   annotations:
+      eks.amazonaws.com/role-arn: < role arn >
+
+helm upgrade --install secretrotator jfrog/jfrog-registry-operator --create-namespace -f custom-values.yaml -n ${NAMESPACE}
+
+Important Note: After this, you can use the service account name and namespace in custom resources. You may install multiple custom resources with different service account details.
+
+Example:
+serviceAccount:
+  name: "sample-service-account"
+  namespace: "<NAMESPACE>"
+```
+
+Once operator is in running state, configure `artifactoryUrl`, `refreshTime`, `namespaceSelector`, `serviceAccount`, `generatedSecrets`, and `secretMetadata` in [secretrotator.yaml](https://github.com/jfrog/jfrog-registry-operator/blob/master/charts/jfrog-registry-operator/examples/secretrotator.yaml)
 
 Sample Manifest:
 
@@ -63,12 +87,20 @@ spec:
     matchLabels:
       kubernetes.io/metadata.name: jfrog-operator
   generatedSecrets:
-  - secretName: token-imagepull-secret
-    secretType: docker
-  - secretName: token-generic-secret
-    secretType: generic
+    - secretName: token-imagepull-secret
+      secretType: docker
+    # - secretName: token-generic-secret
+    #   secretType: generic
   artifactoryUrl: "artifactory.example.com"
-  refreshTime: 1m
+  refreshTime: 30m
+  # serviceAccount: # The default name and namespace will be the operator’s service account name and namespace
+  #   name: ""
+  #   namespace: ""
+  secretMetadata:
+    annotations:
+      annotationKey: annotationValue
+    labels:
+      labelName: labelValue
   security:
     enabled: false
     secretNamespace:
@@ -95,6 +127,19 @@ kubectl delete -f secretrotator.yaml -n ${NAMESPACE}
 
 # Remove the CRD from the cluster
 kubectl delete crd secretrotators.apps.jfrog.com
+```
+
+### Upgrading JFrog Secret Rotator operator
+
+```shell
+# update the helm repo
+helm repo update
+
+# To upgrade the Custom Resource Definition (CRD), run the following command:
+kubectl apply -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/master/config/crd/bases/apps.jfrog.com_secretrotators.yaml
+
+# Uninstall the secretrotator using the following command
+helm upgrade --install secretrotator jfrog/jfrog-registry-operator --set "serviceAccount.name=${SERVICE_ACCOUNT_NAME}" --set serviceAccount.annotations=${ANNOTATIONS}  --namespace  ${NAMESPACE} --create-namespace
 ```
 
 ### Check Resources in your cluster

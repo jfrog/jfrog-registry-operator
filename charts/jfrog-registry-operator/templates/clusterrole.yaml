@@ -1,0 +1,111 @@
+{{- if .Values.rbac.create }}
+kind: ClusterRole
+apiVersion: {{ include "common.capabilities.rbac.apiVersion" . }}
+metadata:
+  name: {{ template "jfrog-registry-operator.fullname" . }}-role
+  namespace: {{ .Release.Namespace | quote }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+rules:
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - patch
+  - update
+  - create
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - "serviceaccounts"
+  verbs:
+  - get
+  resourceNames:
+  {{- range .Values.exchangedServiceAccounts }}
+  {{- if .name }}
+  - {{ .name | quote }}
+  {{- end }}
+  {{- end }}
+  - {{ template "jfrog-registry-operator.serviceAccountName" . }}
+- apiGroups:
+  - ""
+  resources:
+  - "serviceaccounts/token"
+  verbs:
+  - get
+  - create
+  resourceNames:
+  {{- range .Values.exchangedServiceAccounts }}
+  {{- if .name }}
+  - {{ .name | quote }}
+  {{- end }}
+  {{- end }}
+  - {{ template "jfrog-registry-operator.serviceAccountName" . }}
+- apiGroups:
+  - apps
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+- apiGroups:
+  - apps
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - apps.jfrog.com
+  resources:
+  - secretrotators
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.jfrog.com
+  resources:
+  - secretrotators/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps.jfrog.com
+  resources:
+  - secretrotators/status
+  verbs:
+  - get
+  - patch
+  - update
+{{- end }}

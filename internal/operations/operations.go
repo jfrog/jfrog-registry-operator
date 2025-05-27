@@ -1,6 +1,7 @@
 package operations
 
 import (
+	k8sClientSet "artifactory-secrets-rotator/internal/client"
 	"context"
 	"fmt"
 	"math/rand"
@@ -90,6 +91,11 @@ func ValidateObjectSpec(ctx context.Context, tokenDetails *TokenDetails, secretR
 		return &ReconcileError{Message: "Missing ArtifactoryUrl in operator object configuration, no secrets will be created or updated, the current reconciliation cycle will end here"}
 	}
 
+	tokenDetails.IAMRoleAwsRegion = secretRotator.Spec.AwsRegion
+	if tokenDetails.IAMRoleAwsRegion == "" {
+		tokenDetails.IAMRoleAwsRegion = AwsRegion
+	}
+
 	// Check if artifactory host contains http or https
 	// If the operator was configured with full URI, remove http or https
 	if len(tokenDetails.ArtifactoryUrl) > 8 && tokenDetails.ArtifactoryUrl[:8] == "https://" {
@@ -98,9 +104,58 @@ func ValidateObjectSpec(ctx context.Context, tokenDetails *TokenDetails, secretR
 		tokenDetails.ArtifactoryUrl = tokenDetails.ArtifactoryUrl[7:]
 	}
 
-	logger.Info("Artifactory host", "host", tokenDetails.ArtifactoryUrl)
+	// Get the service account details. If not provided, the operator's service account will be used by default.
+	serviceAccount, err := GetServiceAccount(ctx, k8sClient, tokenDetails)
+	if err != nil {
+		return &ReconcileError{Message: "Error reading operator's resource, the current reconciliation cycle will end here", Cause: err}
+	}
 
+	// Check if the service account name and namespace are provided in the custom resource, if not, updating the custom resource with the operator's service account name and namespace
+	if secretRotator.Spec.ServiceAccount.Name == "" || secretRotator.Spec.ServiceAccount.Namespace == "" {
+		logger.Info("Service account name and namespace not provided in the custom resource, using the operator's service account")
+		roleARN := serviceAccount.Annotations[AwsRoleARNKey]
+		if roleARN == "" {
+			return &ReconcileError{Message: "No service account details were provided in resource, and the operator's service account does not have the required ARN annotation. Please either update the operator's service account with the appropriate annotation or specify your service account by providing serviceAccount.name and serviceAccount.namespace in the custom resource."}
+		}
+		logger.Info("Using the operator's default service account", "roleARN", roleARN)
+	}
+
+	logger.Info("Artifactory host", "host", tokenDetails.ArtifactoryUrl)
 	return nil
+}
+
+// GetServiceAccount is used to get the service account and pod details, it will return the service account object
+// and the pod object, and a boolean indicating if the service account is annotated with role ARN
+// If the service account is not annotated with role ARN, it will return an error
+func GetServiceAccount(ctx context.Context, k8sClient client.Client, tokenDetails *TokenDetails) (*v1.ServiceAccount, error) {
+
+	// Get current pod name and namespace
+	podName, namespace := os.Getenv("POD_NAME"), os.Getenv("POD_NAMESPACE")
+	pod, serviceAccount := &v1.Pod{}, &v1.ServiceAccount{}
+
+	// Get the clientset
+	clientset, err := k8sClientSet.GetK8sClient()
+	if err != nil {
+		return nil, err
+	}
+
+	// Get pod details to get the service account name
+	pod, err = clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	// Get Service Account details
+	serviceAccount, err = clientset.CoreV1().ServiceAccounts(namespace).Get(ctx, pod.Spec.ServiceAccountName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	// Update the token details with the service account name and namespace
+	tokenDetails.DefaultServiceAccountName = pod.Spec.ServiceAccountName
+	tokenDetails.DefaultServiceAccountNamespace = namespace
+
+	return serviceAccount, nil
 }
 
 // IsExist checks the labels from namespaces and secret rotator objects

@@ -8,7 +8,7 @@ global:
 image:
   registry: releases-docker.jfrog.io
   repository: jfrog/jfrog-registry-operator
-  tag: 2.0.0
+  tag: 2.1.0
 
   pullPolicy: IfNotPresent
   # pullSecrets:
@@ -130,13 +130,7 @@ podAnnotations: {}
 ## @param deploymentLabels jfrog-registry-operator deployment labels. Evaluated as a template
 ## Ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 ##
-deploymentLabels:
-  AutomationCleanupIgnore: "true"
-  control-plane: controller-manager
-  app.kubernetes.io/name: namespace
-  app.kubernetes.io/instance: system
-  app.kubernetes.io/created-by: artifactory-secrets-rotator
-  app.kubernetes.io/part-of: artifactory-secrets-rotator
+deploymentLabels: {}
 
 ## @param priorityClassName Name of the priority class to be used by jfrog-registry-operator pods, priority class needs to be created beforehand
 ## Ref: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/

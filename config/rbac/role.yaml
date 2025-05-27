@@ -13,6 +13,23 @@ rules:
   - patch
 - apiGroups:
   - ""
+  resourceNames:
+  - jfrog-operator-sa
+  resources:
+  - serviceaccounts
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resourceNames:
+  - jfrog-operator-sa
+  resources:
+  - serviceaccounts/token
+  verbs:
+  - create
+  - get
+- apiGroups:
+  - ""
   - apps
   resources:
   - namespaces
@@ -20,6 +37,13 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - ""
+  - apps
+  resources:
+  - pods
+  verbs:
+  - get
 - apiGroups:
   - ""
   - apps
