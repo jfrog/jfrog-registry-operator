@@ -6,6 +6,7 @@ import (
 	"artifactory-secrets-rotator/internal/operations"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -130,16 +131,34 @@ func CreateOrUpdateSecrets(req controller.Request, ctx context.Context, tokenDet
 		// Create base64-encoded auth string for Docker config
 		auth := fmt.Sprintf("%s:%s", tokenDetails.Username, tokenDetails.Token)
 		tokenb64 := base64.StdEncoding.EncodeToString([]byte(auth))
-		secretObj.Data = map[string][]byte{
-			operations.DockerSecretJSON: []byte(fmt.Sprintf(
-				`{
-				"auths": {
-					"%s": {
-						"auth": "%s"
-					}
-				}
-			}`, tokenDetails.ArtifactoryUrl, tokenb64)),
+
+		auths := make(map[string]map[string]string)
+
+		// Add the secretRotator.Spec.ArtifactoryUrl first
+		auths[secretRotator.Spec.ArtifactoryUrl] = map[string]string{
+			"auth": tokenb64,
 		}
+
+		//Add the secretRotator.Spec.ArtifactorySubdomains
+		for _, url := range secretRotator.Spec.ArtifactorySubdomains {
+			auths[url] = map[string]string{
+				"auth": tokenb64,
+			}
+		}
+
+		dockerConfig := map[string]interface{}{
+			"auths": auths,
+		}
+
+		dockerConfigBytes, err := json.Marshal(dockerConfig)
+		if err != nil {
+			return fmt.Errorf("failed to marshal docker config %w", err)
+		}
+
+		secretObj.Data = map[string][]byte{
+			operations.DockerSecretJSON: dockerConfigBytes,
+		}
+
 		secretObj.Type = corev1.SecretTypeDockerConfigJson
 	} else if secretType == operations.SecretTypeGeneric {
 		secretObj.Data = map[string][]byte{

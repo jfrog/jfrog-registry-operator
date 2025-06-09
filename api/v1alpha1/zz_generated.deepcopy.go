@@ -153,6 +153,11 @@ func (in *SecretRotatorSpec) DeepCopyInto(out *SecretRotatorSpec) {
 		copy(*out, *in)
 	}
 	in.NamespaceSelector.DeepCopyInto(&out.NamespaceSelector)
+	if in.ArtifactorySubdomains != nil {
+		in, out := &in.ArtifactorySubdomains, &out.ArtifactorySubdomains
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	out.ServiceAccount = in.ServiceAccount
 	if in.RefreshInterval != nil {
 		in, out := &in.RefreshInterval, &out.RefreshInterval
