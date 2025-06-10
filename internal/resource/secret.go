@@ -73,6 +73,34 @@ func getRemovedNamespaces(currentNSs v1.NamespaceList, provisionedNSs []string) 
 	return removedNSs
 }
 
+//generateDockerConfigJSON creates a valid dockerconfig.json structure with the provided token and returns it as a byte slice
+func generateDockerConfigJSON(tokenb64 string, secretRotator *jfrogv1alpha1.SecretRotator) ([]byte, error) {
+	auths := make(map[string]map[string]string)
+
+	// Add the secretRotator.Spec.ArtifactoryUrl first
+	auths[secretRotator.Spec.ArtifactoryUrl] = map[string]string{
+		"auth": tokenb64,
+	}
+
+	//Add the secretRotator.Spec.ArtifactorySubdomains
+	for _, url := range secretRotator.Spec.ArtifactorySubdomains {
+		auths[url] = map[string]string{
+			"auth": tokenb64,
+		}
+	}
+
+	dockerConfig := map[string]interface{}{
+		"auths": auths,
+	}
+
+	dockerConfigBytes, err := json.Marshal(dockerConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal docker config %w", err)
+	}
+
+	return dockerConfigBytes, nil
+}
+
 // DeleteSecret deletes a specific secret if it is owned by the SecretRotator.
 func DeleteSecret(ctx context.Context, secretName, secretRotatorName, namespace, secretType string, k8sClient client.Client) error {
 	existingSecret, err := GetSecret(ctx, namespace, secretName, k8sClient)
@@ -132,27 +160,9 @@ func CreateOrUpdateSecrets(req controller.Request, ctx context.Context, tokenDet
 		auth := fmt.Sprintf("%s:%s", tokenDetails.Username, tokenDetails.Token)
 		tokenb64 := base64.StdEncoding.EncodeToString([]byte(auth))
 
-		auths := make(map[string]map[string]string)
-
-		// Add the secretRotator.Spec.ArtifactoryUrl first
-		auths[secretRotator.Spec.ArtifactoryUrl] = map[string]string{
-			"auth": tokenb64,
-		}
-
-		//Add the secretRotator.Spec.ArtifactorySubdomains
-		for _, url := range secretRotator.Spec.ArtifactorySubdomains {
-			auths[url] = map[string]string{
-				"auth": tokenb64,
-			}
-		}
-
-		dockerConfig := map[string]interface{}{
-			"auths": auths,
-		}
-
-		dockerConfigBytes, err := json.Marshal(dockerConfig)
+		dockerConfigBytes, err := generateDockerConfigJSON(tokenb64, secretRotator)
 		if err != nil {
-			return fmt.Errorf("failed to marshal docker config %w", err)
+			return err
 		}
 
 		secretObj.Data = map[string][]byte{

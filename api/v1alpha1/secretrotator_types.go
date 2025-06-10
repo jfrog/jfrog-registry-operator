@@ -63,7 +63,7 @@ type SecretRotatorSpec struct {
 	// ArtifactoryUrl, URL of Artifactory
 	ArtifactoryUrl string `json:"artifactoryUrl,omitempty"`
 
-	// Other Artifactory subdomains, useful for users who use subdomains to separte out Docker repositories in Artifactory
+	// ArtifactorySubdomains holds a list of Artifactory subdomain names.
 	ArtifactorySubdomains []string `json:"artifactorySubdomains,omitempty"`
 
 	// Each target user's ServiceAccount, restricting access to only the specified service accounts and ensuring the role is limited to the jfrog operator service account.
