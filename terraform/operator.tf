@@ -237,7 +237,7 @@ resource "helm_release" "jfrog_operator" {
   dependency_update = true
   create_namespace = true
   values = [
-    "targetUsersServiceAccounts:\n${join("\n", [
+    "exchangedServiceAccounts:\n${join("\n", [
       for index, service_account in local.service_account_list :
       <<EOL
   - name: ${service_account}
