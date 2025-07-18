@@ -69,7 +69,7 @@ serviceAccount:
   namespace: "<NAMESPACE>"
 ```
 
-Once operator is in running state, configure `artifactoryUrl`, `refreshTime`, `namespaceSelector`, `serviceAccount`, `generatedSecrets`, and `secretMetadata` in [secretrotator.yaml](https://github.com/jfrog/jfrog-registry-operator/blob/master/charts/jfrog-registry-operator/examples/secretrotator.yaml)
+Once operator is in running state, configure `artifactoryUrl`, `refreshTime`, `namespaceSelector`, `serviceAccount`, `generatedSecrets`, `artifactorySubdomains` and `secretMetadata` in [secretrotator.yaml](https://github.com/jfrog/jfrog-registry-operator/blob/master/charts/jfrog-registry-operator/examples/secretrotator.yaml)
 
 Sample Manifest:
 
@@ -92,10 +92,11 @@ spec:
     # - secretName: token-generic-secret
     #   secretType: generic
   artifactoryUrl: "artifactory.example.com"
+  # artifactorySubdomains: []
   refreshTime: 30m
-  # serviceAccount: # The default name and namespace will be the operator’s service account name and namespace
-  #   name: ""
-  #   namespace: ""
+  #  serviceAccount: # The default name and namespace will be the operator’s service account name and namespace
+  #    name: ""
+  #    namespace: ""
   secretMetadata:
     annotations:
       annotationKey: annotationValue
