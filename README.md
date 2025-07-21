@@ -51,25 +51,21 @@ helm upgrade --install secretrotator jfrog/jfrog-registry-operator --set "servic
 ### For multi-user installations, if multiple service accounts need to be created:
 ```
 # In a multi-user scenario, please create all service accounts using the role ARN as an annotation via the Helm chart. This will also update the ClusterRole to grant the necessary permissions to each specific service account.
-
 # Create a custom-values.yaml file with service account details and then install operator.
 exchangedServiceAccounts:
  - name: "sample-service-account"
    namespace: "<NAMESPACE>"
    annotations:
       eks.amazonaws.com/role-arn: < role arn >
-
 helm upgrade --install secretrotator jfrog/jfrog-registry-operator --create-namespace -f custom-values.yaml -n ${NAMESPACE}
-
 Important Note: After this, you can use the service account name and namespace in custom resources. You may install multiple custom resources with different service account details.
-
 Example:
 serviceAccount:
   name: "sample-service-account"
   namespace: "<NAMESPACE>"
 ```
 
-Once operator is in running state, configure `artifactoryUrl`, `refreshTime`, `namespaceSelector`, `serviceAccount`, `generatedSecrets`, and `secretMetadata` in [secretrotator.yaml](https://github.com/jfrog/jfrog-registry-operator/blob/master/charts/jfrog-registry-operator/examples/secretrotator.yaml)
+Once operator is in running state, configure `artifactoryUrl`, `refreshTime`, `namespaceSelector`, `serviceAccount`, `generatedSecrets`, `artifactorySubdomains` and `secretMetadata` in [secretrotator.yaml](https://github.com/jfrog/jfrog-registry-operator/blob/master/charts/jfrog-registry-operator/examples/secretrotator.yaml)
 
 Sample Manifest:
 
@@ -92,6 +88,7 @@ spec:
     # - secretName: token-generic-secret
     #   secretType: generic
   artifactoryUrl: "artifactory.example.com"
+  # artifactorySubdomains: []
   refreshTime: 30m
   # serviceAccount: # The default name and namespace will be the operator’s service account name and namespace
   #   name: ""
