@@ -1,6 +1,9 @@
 # JFrog Secret Rotator Operator Chart Changelog
 All changes to this chart will be documented in this file.
 
+## [2.1.1] - June 11, 2025
+* Added subdomain support in registry operator `spec.artifactorySubdomains` [GH-34](https://github.com/jfrog/jfrog-registry-operator/pull/34)
+
 ## [2.1.0] - May 27, 2025
 * Added support for `exchangedServiceAccounts`. Using this, multiple service accounts can be created, which can later be used in `serviceAccount.name` and `serviceAccount.namespace` in the custom resource
 * Added permissions for `serviceaccounts` and `serviceaccounts/token` for the target service accounts.
