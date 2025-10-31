@@ -1,10 +1,8 @@
 package handler
 
 import (
-	"artifactory-secrets-rotator/api/v1alpha1"
 	jfrogv1alpha1 "artifactory-secrets-rotator/api/v1alpha1"
 	k8sClientSet "artifactory-secrets-rotator/internal/client"
-
 	operations "artifactory-secrets-rotator/internal/operations"
 	"bytes"
 	"context"
@@ -14,18 +12,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/aws/smithy-go/ptr"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -37,6 +33,7 @@ func HandlingToken(ctx context.Context, tokenDetails *operations.TokenDetails, s
 
 	if tokenDetails.Token != "" {
 		logger.Info("Token already defined. skipping artifactory token creation")
+		return nil
 	}
 
 	// Check if the service account name already exists
@@ -65,39 +62,57 @@ func HandlingToken(ctx context.Context, tokenDetails *operations.TokenDetails, s
 		return err
 	}
 
-	// Check if the role arn annotation exists or not, if not, it will be set for reconciliation
-	roleARN := serviceAccount.Annotations[operations.RoleARNKey]
-	if roleARN == "" {
-		logger.Error(err, "Error getting the role ARN from the service account's annotations")
-		return &operations.ReconcileError{Message: "role ARN annotation is empty", RetryIn: 1 * time.Minute}
-	}
+	var request *http.Request
 
-	// Create token request for the target service account
-	tokenRequest, err := clientset.CoreV1().ServiceAccounts(secretRotator.Spec.ServiceAccount.Namespace).CreateToken(
-		ctx,
-		secretRotator.Spec.ServiceAccount.Name,
-		&authenticationv1.TokenRequest{Spec: authenticationv1.TokenRequestSpec{Audiences: []string{operations.AmazonAwsSts}, ExpirationSeconds: ptr.Int64(operations.ServiceAccountExpirationSeconds)}},
-		metav1.CreateOptions{},
-	)
-	if err != nil {
-		recorder.Eventf(secretRotator, "Warning", "Misconfiguration",
-			fmt.Sprintf("failed to create token for user/service account %s from %s namespace, error: %s", secretRotator.Spec.ServiceAccount.Name, secretRotator.Spec.ServiceAccount.Namespace, err.Error()))
-		return err
-	}
+	// Check if Pod Identity is enabled - if so, use the clean Pod Identity flow
+	if DetectPodIdentity() {
+		logger.Info("Pod Identity detected - using simplified Pod Identity flow")
 
-	// getting signed request headers for AWS STS GetCallerIdentity call and check role max session duration
-	// this is needed to get the max session duration for the role ARN
-	request, err := GetSignedRequestAndHandleRoleMaxSession(ctx, roleARN, tokenRequest.Status.Token, secretRotator.Spec.ServiceAccount.Name, secretRotator.Spec.ServiceAccount.Namespace, tokenDetails)
-	if err != nil {
-		recorder.Eventf(secretRotator, "Warning", "TokenGenerationFailure",
-			fmt.Sprintf("Error getting signed AWS credentials, error was %s", err.Error()))
-		return err
+		// For Pod Identity, no role ARN annotation or web identity token needed
+		// Just get the signed request directly
+		request, err = GetSignedRequestForPodIdentity(ctx, tokenDetails)
+		if err != nil {
+			recorder.Eventf(secretRotator, "Warning", "PodIdentityError",
+				fmt.Sprintf("Error in Pod Identity flow: %s", err.Error()))
+			return err
+		}
+	} else {
+		logger.Info("IRSA detected - using traditional IRSA flow")
+
+		// Check if the role arn annotation exists or not, if not, it will be set for reconciliation
+		roleARN := serviceAccount.Annotations[operations.RoleARNKey]
+		if roleARN == "" {
+			logger.Error(err, "Error getting the role ARN from the service account's annotations")
+			return &operations.ReconcileError{Message: "role ARN annotation is empty", RetryIn: 1 * time.Minute}
+		}
+
+		// Create token request for the target service account
+		tokenRequest, err := clientset.CoreV1().ServiceAccounts(secretRotator.Spec.ServiceAccount.Namespace).CreateToken(
+			ctx,
+			secretRotator.Spec.ServiceAccount.Name,
+			&authenticationv1.TokenRequest{Spec: authenticationv1.TokenRequestSpec{Audiences: []string{operations.AmazonAwsSts}, ExpirationSeconds: ptr.Int64(operations.ServiceAccountExpirationSeconds)}},
+			metav1.CreateOptions{},
+		)
+		if err != nil {
+			recorder.Eventf(secretRotator, "Warning", "Misconfiguration",
+				fmt.Sprintf("failed to create token for user/service account %s from %s namespace, error: %s", secretRotator.Spec.ServiceAccount.Name, secretRotator.Spec.ServiceAccount.Namespace, err.Error()))
+			return err
+		}
+
+		// getting signed request headers for AWS STS GetCallerIdentity call and check role max session duration
+		// this is needed to get the max session duration for the role ARN
+		request, err = GetSignedRequestAndHandleRoleMaxSession(ctx, roleARN, tokenRequest.Status.Token, secretRotator.Spec.ServiceAccount.Name, secretRotator.Spec.ServiceAccount.Namespace, tokenDetails)
+		if err != nil {
+			recorder.Eventf(secretRotator, "Warning", "TokenGenerationFailure",
+				fmt.Sprintf("Error getting signed AWS credentials, error was %s", err.Error()))
+			return err
+		}
 	}
 
 	//getting max aws role session time to be used as artiactory token expiration time
 	maxTTL := tokenDetails.RoleMaxSessionDuration
 	if secretRotator.Spec.RefreshInterval == nil {
-		logger.Info("JFrog access token TTL will use AWS role Max Session Duration", "role", roleARN, "roleMaxSession", maxTTL)
+		logger.Info("JFrog access token TTL will use AWS role Max Session Duration", "roleMaxSession", maxTTL)
 	}
 
 	// if the maxTTL is not set we will use the default value of 3 hours
@@ -186,13 +201,13 @@ func createCustomHTTPClient(securityDetails *jfrogv1alpha1.SecurityDetails, secr
 		return &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}, nil
 	}
 
-	dirPath := v1alpha1.CustomCertificatePath + secretRotatorName
-	if operations.FileExists(dirPath+v1alpha1.CertPem) && operations.FileExists(dirPath+v1alpha1.KeyPem) || operations.FileExists(dirPath+v1alpha1.TlsCrt) && operations.FileExists(dirPath+v1alpha1.TlsKey) {
-		certPath := v1alpha1.CertPem
-		keyPath := v1alpha1.KeyPem
-		if operations.FileExists(dirPath+v1alpha1.TlsCrt) && operations.FileExists(dirPath+v1alpha1.TlsKey) {
-			certPath = v1alpha1.TlsCrt
-			keyPath = v1alpha1.TlsKey
+	dirPath := jfrogv1alpha1.CustomCertificatePath + secretRotatorName
+	if operations.FileExists(dirPath+jfrogv1alpha1.CertPem) && operations.FileExists(dirPath+jfrogv1alpha1.KeyPem) || operations.FileExists(dirPath+jfrogv1alpha1.TlsCrt) && operations.FileExists(dirPath+jfrogv1alpha1.TlsKey) {
+		certPath := jfrogv1alpha1.CertPem
+		keyPath := jfrogv1alpha1.KeyPem
+		if operations.FileExists(dirPath+jfrogv1alpha1.TlsCrt) && operations.FileExists(dirPath+jfrogv1alpha1.TlsKey) {
+			certPath = jfrogv1alpha1.TlsCrt
+			keyPath = jfrogv1alpha1.TlsKey
 		}
 		// Load server certs
 		cert, err := tls.LoadX509KeyPair(dirPath+certPath, dirPath+keyPath)
@@ -202,13 +217,13 @@ func createCustomHTTPClient(securityDetails *jfrogv1alpha1.SecurityDetails, secr
 		tr.TLSClientConfig.Certificates = []tls.Certificate{cert}
 	}
 
-	if operations.FileExists(dirPath+v1alpha1.CaPem) || operations.FileExists(dirPath+v1alpha1.TlsCa) {
-		caPath := v1alpha1.CaPem
-		if operations.FileExists(dirPath + v1alpha1.TlsCa) {
-			caPath = v1alpha1.TlsCa
+	if operations.FileExists(dirPath+jfrogv1alpha1.CaPem) || operations.FileExists(dirPath+jfrogv1alpha1.TlsCa) {
+		caPath := jfrogv1alpha1.CaPem
+		if operations.FileExists(dirPath + jfrogv1alpha1.TlsCa) {
+			caPath = jfrogv1alpha1.TlsCa
 		}
 		// Load CA cert
-		caCert, err := ioutil.ReadFile(dirPath + caPath)
+		caCert, err := os.ReadFile(dirPath + caPath)
 		if err != nil {
 			return nil, err
 		}
