@@ -18,3 +18,7 @@ changelog:
     - title: Other Changes 📚
       labels:
         - "*"
+    - title: Ready To Merge
+      labels:
+        - "*"
+
