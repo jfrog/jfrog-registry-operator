@@ -1,0 +1,72 @@
+name: Bump Go and Dependencies
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - pr-bump-up
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Find the latest stable Go version
+      - name: Get latest Go version
+        id: go-version
+        run: |
+          LATEST=$(curl -s https://go.dev/VERSION?m=text | head -n1 | sed 's/go//')
+          echo "version=$LATEST" >> $GITHUB_OUTPUT
+
+      - name: Show detected Go version
+        run: echo "Latest Go version is ${{ steps.go-version.outputs.version }}"
+
+      # Update go.mod 'go' directive if needed
+      - name: Update go.mod Go version
+        run: |
+          CURRENT=$(grep '^go ' go.mod | awk '{print $2}')
+          NEW=${{ steps.go-version.outputs.version }}
+          if [ "$CURRENT" != "$NEW" ]; then
+            echo "Updating Go version from $CURRENT to $NEW"
+            sed -i "s/^go .*/go $NEW/" go.mod
+          else
+            echo "Go version already up-to-date ($CURRENT)"
+          fi
+
+      # Update dependencies
+      - name: Update dependencies
+        run: |
+          go get -u ./...
+          go mod tidy
+
+      # Try building the project
+      - name: Build project
+        id: build
+        continue-on-error: true
+        run: |
+          echo "Running go build..."
+          if go build ./...; then
+            echo "build_status=success" >> $GITHUB_OUTPUT
+            echo "✅ Build succeeded"
+          else
+            echo "build_status=failure" >> $GITHUB_OUTPUT
+            echo "❌ Build failed"
+          fi
+
+      # Commit and open PR
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Bumping up Go version and dependencies"
+          title: "Bump: bump Go version and dependencies"
+          branch: "chore/go-bump"
+          body: |
+            This PR updates the Go toolchain version and all dependencies.
+
+            **Build status:** ${{ steps.build.outputs.build_status == 'success' && '✅ Successful' || '❌ Failed' }}
+
+            ---
+            _Automated bump workflow run by GitHub Actions._
