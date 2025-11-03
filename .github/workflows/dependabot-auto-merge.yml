@@ -2,7 +2,7 @@ name: Dependabot auto-merge
 on:
   pull_request_target:
     branches:
-      - master
+      - pr-bump-up-bot
 
 permissions:
   contents: write

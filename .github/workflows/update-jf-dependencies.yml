@@ -21,7 +21,7 @@ jobs:
       - name: Checkout main branch
         uses: actions/checkout@v5
         with:
-          ref: master
+          ref: pr-bump-up-bot
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create and checkout new branch
@@ -69,7 +69,7 @@ jobs:
 
           **Branch**: \`${{ steps.branch.outputs.branch_name }}\`
           **Timestamp**: \`${{ steps.timestamp.outputs.timestamp }}\`" \
-            --base master \
+            --base pr-bump-up-bot \
             --head "${{ steps.branch.outputs.branch_name }}"
         env:
           GH_TOKEN: ${{ secrets.CLI_ACTION_TOKEN }}
