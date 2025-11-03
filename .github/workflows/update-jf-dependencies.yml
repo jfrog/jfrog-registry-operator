@@ -33,9 +33,6 @@ jobs:
           git checkout -b "$BRANCH_NAME"
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
-      - name: Run make update-all
-        run: make update-all
-
       - name: Check for changes and commit
         id: changes
         run: |

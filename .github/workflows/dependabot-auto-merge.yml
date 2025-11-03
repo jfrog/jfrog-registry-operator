@@ -31,9 +31,6 @@ jobs:
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: Run make update-all for go dependencies
-        if: steps.metadata.outputs.dependency-group == 'go'
-        run: make update-all
 
       - name: Check for changes and commit
         if: steps.metadata.outputs.dependency-group == 'go'
