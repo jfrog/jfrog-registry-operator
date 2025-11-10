@@ -1,6 +1,9 @@
 # JFrog Secret Rotator Operator Chart Changelog
 All changes to this chart will be documented in this file.
 
+## [2.1.5] - Nov 10, 2025
+* Bumping Golang and dependency versions
+
 ## [2.1.1] - June 11, 2025
 * Added subdomain support in registry operator `spec.artifactorySubdomains` [GH-34](https://github.com/jfrog/jfrog-registry-operator/pull/34)
 

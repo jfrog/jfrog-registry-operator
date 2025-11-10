@@ -20,8 +20,11 @@ jobs:
       - name: Get latest Go version
         id: go-version
         run: |
+          # Fetch the latest stable Go version, e.g. "1.25.4"
           LATEST=$(curl -s https://go.dev/VERSION?m=text | head -n1 | sed 's/go//')
-          echo "version=$LATEST" >> $GITHUB_OUTPUT
+          # Trim it down to major.minor (e.g. "1.25")
+          MAJMIN=$(echo "$LATEST" | cut -d. -f1,2)
+          echo "version=$MAJMIN" >> $GITHUB_OUTPUT
 
       - name: Show detected Go version
         run: echo "Latest Go version is ${{ steps.go-version.outputs.version }}"
