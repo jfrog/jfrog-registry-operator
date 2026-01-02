@@ -1,0 +1,54 @@
+name: Kind + Helm CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  kind-helm-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v4
+      with:
+        version: v1.29.0
+
+    - name: Install Helm
+      uses: azure/setup-helm@v4
+      with:
+        version: v3.14.0
+
+    - name: Create kind cluster
+      uses: helm/kind-action@v1.10.0
+      with:
+        cluster_name: kind-ci
+
+    - name: Verify cluster
+      run: kubectl get nodes
+
+    - name: Add Helm repo
+      run: |
+        helm repo add jfrog https://charts.jfrog.io
+        helm repo update
+
+    - name: Install Helm chart
+      run: |
+        helm upgrade --install secretrotator ./charts/jfrog-registry-operator --set "serviceAccount.name=serviceaccount" --set serviceAccount.annotations='eks.amazonaws.com/role-arn: arn:aws:iam::000000000000:role/jfrog-operator-role'  --namespace test --create-namespace
+
+
+    - name: Wait for pods
+      run: |
+        kubectl wait \
+          --for=condition=Ready pod \
+          --all \
+          -n test \
+          --timeout=180s
+
+    - name: Single kubectl validation command
+      run: |
+        kubectl get pods -n test
