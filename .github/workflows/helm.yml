@@ -2,7 +2,7 @@ name: Kind + Helm CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ testing-cr ]
   pull_request:
 
 jobs:
