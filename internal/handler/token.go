@@ -4,6 +4,7 @@ import (
 	"artifactory-secrets-rotator/api/v1alpha1"
 	jfrogv1alpha1 "artifactory-secrets-rotator/api/v1alpha1"
 	k8sClientSet "artifactory-secrets-rotator/internal/client"
+	"errors"
 
 	operations "artifactory-secrets-rotator/internal/operations"
 	"bytes"
@@ -11,18 +12,15 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"time"
 
-	authenticationv1 "k8s.io/api/authentication/v1"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/aws/smithy-go/ptr"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 

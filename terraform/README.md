@@ -44,9 +44,11 @@ export TF_VAR_aws_iam_role_names=<aws-iam-role-name>     # Default value is jfro
 export TF_VAR_aws_iam_policy_names=<aws-iam-policy-name> # Default value is jfrogoperatorpolicy
 export TF_VAR_operator_version=<operator-version>       # Default value is latest
 export TF_VAR_service_users=<user-name>                  # Default value is admin
+export TF_VAR_scope=<scope of crd cluster/namespaced>    # Default is cluster scope
 
 Required:
 
+export TF_VAR_install_update_crd=true # by default it is false
 export TF_VAR_eks_cluster_name=<eks-cluster-name>
 export TF_VAR_eks_region=<aws-region>
 export TF_VAR_jfrog_url=<jfrog-artifactory-url>
@@ -59,7 +61,8 @@ export TF_VAR_jfrog_scoped_tokens=<jfrog-api-token>
 export TF_VAR_namespace=demo
 export TF_VAR_aws_iam_role_names="role1,role2"
 export TF_VAR_aws_iam_policy_names="policy1,policy2"
-export TF_VAR_service_accounts="sa1,sa2"
+export TF_VAR_service_accounts="serviceaccount1,serviceaccount2"
+export TF_VAR_service_account_namespace_pairs="serviceaccount1:namespace1,serviceaccount2:namespace2"
 export TF_VAR_service_users="user1,user2"
 export TF_VAR_jfrog_scoped_tokens="token1,token2"
 export TF_VAR_eks_cluster_name=aws-operator-jfrog
@@ -67,6 +70,8 @@ export TF_VAR_eks_region=ap-northeast-3
 export TF_VAR_jfrog_url="artifactory.jfrog.com"
 export TF_VAR_operator_version=latest
 ```
+#### Note: For `TF_VAR_service_account_namespace_pairs` var, the namespaces must be pre-requisites and must exist before applying Terraform.
+
 
 4. Initialize Terraform
 
@@ -121,12 +126,12 @@ spec:
     matchLabels:
       kubernetes.io/metadata.name: jfrog-operator
   generatedSecrets:
-  - secretName: token-imagepull-secret
-    secretType: docker
-  # - secretName: token-generic-secret
-  #   secretType: generic
+    - secretName: token-imagepull-secret
+      secretType: docker
+    # - secretName: token-generic-secret
+    #   secretType: generic
   artifactoryUrl: "artifactory.example.com"
-      kubernetes.io/metadata.name: jfrogoperator
+  # artifactorySubdomains: []
   refreshTime: 30m
   #  serviceAccount: # The default name and namespace will be the operator’s service account name and namespace
   #    name: ""
@@ -174,7 +179,13 @@ The AWS provider is used to interact with AWS resources such as IAM roles, polic
 | `TF_VAR_eks_region`           | AWS region where the EKS cluster is hosted | `"ap-northeast-3"`  |
 | `TF_VAR_jfrog_url`            | URL for the JFrog Artifactory instance    | `"artifactory.jfrog.com"` |
 | `TF_VAR_operator_version`     | Version of the JFrog operator             | `"latest"`          |
+| `TF_VAR_service_account_namespace_pairs`     | Service account and namespace pairs             | `"jfrogoperatorsa:jfrogoperator"`          |
+| `TF_VAR_scope`                | Scope of crd cluster/namespaced            | `"cluster"`   |
+| `TF_VAR_install_update_crd`   | Install or update CRD                      | `"false"`   |
 
+Required:
+
+export TF_VAR_install_update_crd=true # by default it is false
 
 ### Resources
 | Resource Name                                            | Description                                                                           |

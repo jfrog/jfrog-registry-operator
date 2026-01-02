@@ -74,7 +74,7 @@ func (r *SecretRotatorReconciler) ManagingSecrets(ctx context.Context, tokenDeta
 
 			existingSecret, err := resource.GetSecret(ctx, namespace.Name, gSecret.SecretName, r.Client)
 			if err != nil && !apierrors.IsNotFound(err) {
-				logger.Error(err, "Could not get existing secret, skipping namespace", "secretType", gSecret.SecretType, "secret", gSecret.SecretName, "namespace", namespace.Name)
+				logger.Error(err, "Could not get existing secret, skipping secret", "secretType", gSecret.SecretType, "secret", gSecret.SecretName, "namespace", namespace.Name)
 				failedSecrets = append(failedSecrets, fmt.Sprintf("%s (%s) Reason: not found, ", gSecret.SecretName, gSecret.SecretType))
 				skippedSecrets[gSecret.SecretName] = namespace.Name
 				continue
@@ -99,15 +99,21 @@ func (r *SecretRotatorReconciler) ManagingSecrets(ctx context.Context, tokenDeta
 			if isExist || value == namespace.Name {
 				continue
 			}
-			if err := resource.CreateOrUpdateSecrets(req, ctx, tokenDetails, secretRotator, namespace, r.Client, r.Scheme, gSecret.SecretName, gSecret.SecretType); err != nil {
-				logger.Error(err, "Failed to create or update secret", "secretType", gSecret.SecretType, "secret", gSecret.SecretName, "namespace", namespace.Name)
-				failedSecrets = append(failedSecrets, fmt.Sprintf("%s (%s) Reason: failed in create/update", gSecret.SecretName, gSecret.SecretType))
+			if err, isCrossOwnershipConflict := resource.CreateOrUpdateSecrets(req, ctx, tokenDetails, secretRotator, namespace, r.Client, r.Scheme, gSecret.SecretName, gSecret.SecretType); err != nil {
+				// Handle cross-namespace owner reference conflict separately
+				if isCrossOwnershipConflict {
+					logger.Info("Skipping Secret", "secret type", gSecret.SecretType, "secret name", gSecret.SecretName, "namespace", namespace.Name, "error", err, "Reason", "cross-namespace owner references are disallowed. Verify the installation scope and namespace selectors")
+					failedSecrets = append(failedSecrets, fmt.Sprintf(" Skipping secret %s: namespace is out of scope. Verify the installation scope and namespace selectors", gSecret.SecretName))
+				} else {
+					logger.Error(err, " Failed to create or update secret", "secretType", gSecret.SecretType, "secret", gSecret.SecretName, "namespace", namespace.Name)
+					failedSecrets = append(failedSecrets, fmt.Sprintf("%s (%s) Reason: failed in create/update", gSecret.SecretName, gSecret.SecretType))
+				}
 				continue
 			}
 			tokenDetails.SecretManagedByNamespaces[namespace.Name] = append(tokenDetails.SecretManagedByNamespaces[namespace.Name], gSecret.SecretName)
 		}
 		if len(failedSecrets) > 0 {
-			message := fmt.Errorf("Unable to manage secrets %s in namespace %s", strings.Join(failedSecrets, " and "), namespace.Name)
+			message := fmt.Errorf("Unable to manage secrets ⚠️ %s in namespace %s", strings.Join(failedSecrets, ", "), namespace.Name)
 			tokenDetails.FailedNamespaces[namespace.Name] = message
 			failedSecrets = []string{}
 		}
