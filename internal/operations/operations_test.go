@@ -27,37 +27,50 @@ func TestGetServiceAccount_Success(t *testing.T) {
 	const podName = "test-pod-name"
 	const serviceAccountName = "test-sa"
 
-	fakeK8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
-		&corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      podName,
-				Namespace: podNamespace,
-			},
-			Spec: corev1.PodSpec{
-				ServiceAccountName: serviceAccountName,
-			},
-		},
-		&corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      serviceAccountName,
-				Namespace: podNamespace,
-				Annotations: map[string]string{
-					AwsRoleARNKey: "arn:aws:iam::123456789012:role/test-role",
+	k8sClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(
+			&corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      podName,
+					Namespace: podNamespace,
+				},
+				Spec: corev1.PodSpec{
+					ServiceAccountName: serviceAccountName,
 				},
 			},
-		},
-	)
+			&corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceAccountName,
+					Namespace: podNamespace,
+					Annotations: map[string]string{
+						AwsRoleARNKey: "arn:aws:iam::123456789012:role/test-role",
+					},
+				},
+			},
+		).
+		Build()
 
 	tokenDetails := &TokenDetails{}
+
 	secretRotatorPod := &corev1.Pod{}
-	err := fakeK8sClient.Build().Get(ctx, types.NamespacedName{Name: "test-pod-name", Namespace: "test-pod-ns"}, secretRotatorPod)
+	err := k8sClient.Get(
+		ctx,
+		types.NamespacedName{Name: podName, Namespace: podNamespace},
+		secretRotatorPod,
+	)
 	require.NoError(t, err)
 
 	serviceAccount := &corev1.ServiceAccount{}
-	err = fakeK8sClient.Build().Get(ctx, types.NamespacedName{Name: serviceAccountName, Namespace: "test-pod-ns"}, serviceAccount)
+	err = k8sClient.Get(
+		ctx,
+		types.NamespacedName{Name: serviceAccountName, Namespace: podNamespace},
+		serviceAccount,
+	)
+	require.NoError(t, err)
+
 	tokenDetails.DefaultServiceAccountNamespace = podNamespace
 	tokenDetails.DefaultServiceAccountName = serviceAccountName
-	require.NoError(t, err)
 
 	assert.NotNil(t, serviceAccount)
 	assert.Equal(t, serviceAccountName, serviceAccount.Name)

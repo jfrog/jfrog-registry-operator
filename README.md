@@ -44,21 +44,32 @@ export SERVICE_ACCOUNT_NAME="<service account name>"
 export ANNOTATIONS="<Role annotation for service account>" # Example: eks.amazonaws.com/role-arn: arn:aws:iam::000000000000:role/jfrog-operator-role
 export NAMESPACE="jfrog-operator"
 
-# install JFrog secret rotator operator
+# Install or Upgrade CRD
+For Cluster scope:
+kubectl apply -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/v3.0.0/config/crd/bases/apps.jfrog.com_secretrotators_cluster_scope.yaml
+
+For Namespace scope:
+kubectl apply -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/v3.0.0/config/crd/bases/apps.jfrog.com_secretrotators_namespaced_scope.yaml
+
+# Install JFrog secret rotator operator
 helm upgrade --install secretrotator jfrog/jfrog-registry-operator --set "serviceAccount.name=${SERVICE_ACCOUNT_NAME}" --set serviceAccount.annotations=${ANNOTATIONS}  --namespace  ${NAMESPACE} --create-namespace
 ```
 
 ### For multi-user installations, if multiple service accounts need to be created:
 ```
 # In a multi-user scenario, please create all service accounts using the role ARN as an annotation via the Helm chart. This will also update the ClusterRole to grant the necessary permissions to each specific service account.
+
 # Create a custom-values.yaml file with service account details and then install operator.
 exchangedServiceAccounts:
  - name: "sample-service-account"
    namespace: "<NAMESPACE>"
    annotations:
       eks.amazonaws.com/role-arn: < role arn >
+
 helm upgrade --install secretrotator jfrog/jfrog-registry-operator --create-namespace -f custom-values.yaml -n ${NAMESPACE}
+
 Important Note: After this, you can use the service account name and namespace in custom resources. You may install multiple custom resources with different service account details.
+
 Example:
 serviceAccount:
   name: "sample-service-account"
@@ -132,8 +143,12 @@ kubectl delete crd secretrotators.apps.jfrog.com
 # update the helm repo
 helm repo update
 
-# To upgrade the Custom Resource Definition (CRD), run the following command:
-kubectl apply -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/master/config/crd/bases/apps.jfrog.com_secretrotators.yaml
+# Install or Upgrade CRD
+For Cluster scope:
+kubectl apply -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/v3.0.0/config/crd/bases/apps.jfrog.com_secretrotators_cluster_scope.yaml
+
+For Namespace scope:
+kubectl apply -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/v3.0.0/config/crd/bases/apps.jfrog.com_secretrotators_namespaced_scope.yaml
 
 # Uninstall the secretrotator using the following command
 helm upgrade --install secretrotator jfrog/jfrog-registry-operator --set "serviceAccount.name=${SERVICE_ACCOUNT_NAME}" --set serviceAccount.annotations=${ANNOTATIONS}  --namespace  ${NAMESPACE} --create-namespace
@@ -158,7 +173,7 @@ Follow [monitoring setup docs](./config/monitoring/).
 
 ## 🔥 Reporting issues
 
-Please help us improve Frogbot by [reporting issues](https://github.com/jfrog/jfrog-registry-operator/issues/new/choose) you encounter.
+Please help us improve JFrog Registry Operator by [reporting issues](https://github.com/jfrog/jfrog-registry-operator/issues/new/choose) you encounter.
 
 <div id="contributions"></div>
 

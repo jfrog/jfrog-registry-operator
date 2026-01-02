@@ -4,7 +4,7 @@ provider "aws" {
 
 provider "helm" {
   kubernetes = {
-    config_path = "~/.kube/config"
+    config_path = "~/.kube/config"  # or use var.kubeconfig
   }
 }
 
@@ -17,7 +17,13 @@ variable "namespace" {
 variable "service_accounts" {
   description = "The Kubernetes service accounts (comma-separated)"
   type        = string
-  default     = "jfrogoperatorsa"
+  default     = "jfrog-operator-sa"
+}
+
+variable "service_account_namespace_pairs" {
+  description = "The Kubernetes namespaces for each service account (comma-separated)"
+  type        = string
+  default     = "jfrog-operator-sa:jfrogoperator"
 }
 
 variable "aws_iam_role_names" {
@@ -77,6 +83,16 @@ variable "helm_release_name" {
   default     = "secretrotator"
 }
 
+variable "install_update_crd" {
+  type    = bool
+  default = false
+}
+
+variable "scope" {
+  type    = string
+  default = "cluster"
+}
+
 # Locals to split the comma-separated strings into lists
 locals {
   service_account_list = split(",", var.service_accounts)
@@ -84,6 +100,36 @@ locals {
   iam_policy_name_list = split(",", var.aws_iam_policy_names)
   jfrog_token_list      = split(",", var.jfrog_scoped_tokens)
   service_user_list    = split(",", var.service_users)
+
+  # Split the namespace mapping string into a list of "sa:ns" pairs
+  service_account_namespace_pairs_list = split(",", var.service_account_namespace_pairs)
+
+  # Convert pairs into a map { sa => namespace }
+  service_account_namespace_map = {
+    for idx, pair in local.service_account_namespace_pairs_list :
+    split(":", pair)[0] => (
+      # If there is only one service account, override namespace with var.namespace
+      length(local.service_account_list) == 1 && idx == 0 ?
+      local.default_namespace :
+      split(":", pair)[1]
+    )
+  }
+
+  default_namespace = var.namespace
+}
+
+resource "null_resource" "install_crd" {
+  count = var.install_update_crd ? 1 : 0
+
+  provisioner "local-exec" {
+    command = <<EOT
+kubectl apply -f ${
+  var.scope == "cluster"
+  ? "https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/v3.0.0/config/crd/bases/apps.jfrog.com_secretrotators_cluster_scope.yaml"
+  : "https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/v3.0.0/config/crd/bases/apps.jfrog.com_secretrotators_namespaced_scope.yaml"
+}
+EOT
+  }
 }
 
 # Ensure the lists have the same number of elements and explicitly fail during the apply phase if not (for older Terraform versions)
@@ -151,10 +197,11 @@ output "oidc_provider_arn" {
   value = aws_iam_openid_connect_provider.eks_oidc_provider.arn
 }
 
-# Create IAM Roles and Policies for each service account
+# Create IAM Roles for each service account
 resource "aws_iam_role" "aws_reg_operator_role" {
-  count                 = length(local.service_account_list)
-  name                  = element(local.iam_role_name_list, count.index)
+  count = length(local.service_account_list)
+  name  = element(local.iam_role_name_list, count.index)
+
   assume_role_policy = jsonencode({
     "Version" : "2012-10-17",
     "Statement" : [
@@ -166,8 +213,9 @@ resource "aws_iam_role" "aws_reg_operator_role" {
         "Action" : "sts:AssumeRoleWithWebIdentity",
         "Condition" : {
           "StringEquals" : {
+            # Dynamically use the namespace for this service account
             "${data.external.eks_oidc_issuer.result["issuer"]}:aud" : "sts.amazonaws.com",
-            "${data.external.eks_oidc_issuer.result["issuer"]}:sub" : "system:serviceaccount:${var.namespace}:${element(local.service_account_list, count.index)}"
+            "${data.external.eks_oidc_issuer.result["issuer"]}:sub" : "system:serviceaccount:${lookup(local.service_account_namespace_map, element(local.service_account_list, count.index), local.default_namespace)}:${element(local.service_account_list, count.index)}"
           }
         }
       }
@@ -231,21 +279,29 @@ resource "helm_release" "jfrog_operator" {
   name       = var.helm_release_name
   chart      = var.helm_chart_name
   namespace  = var.namespace
-  version    = var.operator_version
+  version    = length(var.operator_version) > 0 ? var.operator_version : null
   atomic = true
   force_update = true
   dependency_update = true
   create_namespace = true
+
   values = [
+    length(local.service_account_list) > 1 || local.service_account_list[0] != "jfrog-operator-sa" ? 
+    # If service_account_list has entries, generate them dynamically
     "exchangedServiceAccounts:\n${join("\n", [
-      for index, service_account in local.service_account_list :
-      <<EOL
-  - name: ${service_account}
-    namespace: ${var.namespace}
-    annotations:
-      eks.amazonaws.com/role-arn: ${aws_iam_role.aws_reg_operator_role[index].arn}
+      for i, sa in local.service_account_list : <<EOL
+      - name: ${sa}
+        namespace: ${lookup(local.service_account_namespace_map, sa, local.default_namespace)}
+        annotations:
+          eks.amazonaws.com/role-arn: ${aws_iam_role.aws_reg_operator_role[i].arn}
 EOL
-    ])}"
+    ])}" :
+    # If service_account_list is empty, use default serviceAccount
+    <<EOL
+    serviceAccount:
+      annotations: |
+        eks.amazonaws.com/role-arn: ${aws_iam_role.aws_reg_operator_role[0].arn}
+EOL
   ]
 
   depends_on = [aws_iam_role_policy_attachment.aws_operator_attachment]

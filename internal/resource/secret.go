@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -97,7 +98,7 @@ func DeleteSecret(ctx context.Context, secretName, secretRotatorName, namespace,
 }
 
 // CreateOrUpdateSecrets creates or updates secrets in Kubernetes based on the specified secret type.
-func CreateOrUpdateSecrets(req controller.Request, ctx context.Context, tokenDetails *operations.TokenDetails, secretRotator *jfrogv1alpha1.SecretRotator, namespace corev1.Namespace, k8sClient client.Client, scheme *runtime.Scheme, secretName, secretType string) error {
+func CreateOrUpdateSecrets(req controller.Request, ctx context.Context, tokenDetails *operations.TokenDetails, secretRotator *jfrogv1alpha1.SecretRotator, namespace corev1.Namespace, k8sClient client.Client, scheme *runtime.Scheme, secretName, secretType string) (error, bool) {
 	logger := log.FromContext(ctx)
 
 	// Common function to set up secret metadata
@@ -107,7 +108,6 @@ func CreateOrUpdateSecrets(req controller.Request, ctx context.Context, tokenDet
 		secret.Annotations = secretRotator.Spec.SecretMetadata.Annotations
 		return controllerutil.SetControllerReference(secretRotator, secret, scheme)
 	}
-
 	secretObj := &v1.Secret{}
 	secretObj.Name = secretName
 	req.NamespacedName.Name = secretName
@@ -119,10 +119,13 @@ func CreateOrUpdateSecrets(req controller.Request, ctx context.Context, tokenDet
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			if err := setSecretMetadata(secretObj); err != nil {
-				return fmt.Errorf("failed to set controller reference for %s secret %s: %w", secretType, secretName, err)
+				if strings.Contains(err.Error(), "cross-namespace owner references are disallowed") {
+					return fmt.Errorf("failed to set cross-namespace owner references for %s secret %s", secretType, secretName), true
+				}
+				return fmt.Errorf("failed to set controller reference for %s secret %s: %w", secretType, secretName, err), false
 			}
 		} else {
-			return fmt.Errorf("failed to get %s secret %s: %w", secretType, secretName, err)
+			return fmt.Errorf("failed to get %s secret %s: %w", secretType, secretName, err), false
 		}
 	}
 
@@ -136,7 +139,7 @@ func CreateOrUpdateSecrets(req controller.Request, ctx context.Context, tokenDet
 		// with the provided token and returns it as a byte slice
 		dockerConfigBytes, err := generateDockerConfigJSON(tokenb64, secretRotator)
 		if err != nil {
-			return err
+			return err, false
 		}
 		secretObj.Data = map[string][]byte{
 			operations.DockerSecretJSON: dockerConfigBytes,
@@ -156,16 +159,16 @@ func CreateOrUpdateSecrets(req controller.Request, ctx context.Context, tokenDet
 		if apierrors.IsNotFound(err) {
 			err = k8sClient.Create(ctx, secretObj)
 			if err != nil {
-				return fmt.Errorf("failed to create %s secret %s: %w", secretType, secretName, err)
+				return fmt.Errorf("failed to create %s secret %s: %w", secretType, secretName, err), false
 			}
 		} else {
-			return fmt.Errorf("failed to update %s secret %s: %w", secretType, secretName, err)
+			return fmt.Errorf("failed to update %s secret %s: %w", secretType, secretName, err), false
 		}
 	}
 
 	logger.Info("Successfully created/updated secret", "namespace", namespace.Name, "secret", secretName, "secretType", secretType)
 
-	return nil
+	return nil, false
 }
 
 // HandleCerts copies certificates into the container.

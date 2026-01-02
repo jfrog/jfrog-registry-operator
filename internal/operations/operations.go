@@ -70,11 +70,6 @@ func ValidateObjectSpec(ctx context.Context, tokenDetails *TokenDetails, secretR
 
 	}
 
-	// Log GeneratedSecrets for debugging
-	for i, gSecret := range tokenDetails.GeneratedSecrets {
-		logger.Info("Generated Secret entry", "index", i, "secretName", gSecret.SecretName, "secretType", gSecret.SecretType)
-	}
-
 	tokenDetails.NamespaceSelector, err = metav1.LabelSelectorAsSelector(&secretRotator.Spec.NamespaceSelector)
 	if err != nil {
 		return &ReconcileError{Message: "Error reading namespace labels selector from operator object configuration, no secrets will be created or updated, the current reconciliation cycle will end here", Cause: err}
@@ -82,8 +77,13 @@ func ValidateObjectSpec(ctx context.Context, tokenDetails *TokenDetails, secretR
 
 	tokenDetails.NamespaceList = v1.NamespaceList{}
 	err = k8sClient.List(ctx, &tokenDetails.NamespaceList, &client.ListOptions{LabelSelector: tokenDetails.NamespaceSelector})
-	if err != nil {
+	if err != nil || len(tokenDetails.NamespaceList.Items) == 0 {
 		return &ReconcileError{Message: "No namespaces match the configured namespace selector, the current reconciliation cycle will end here", Cause: err}
+	}
+
+	// Log GeneratedSecrets for debugging
+	for i, gSecret := range tokenDetails.GeneratedSecrets {
+		logger.Info("Generated Secret entry", "index", i, "secretName", gSecret.SecretName, "secretType", gSecret.SecretType)
 	}
 
 	tokenDetails.ArtifactoryUrl = secretRotator.Spec.ArtifactoryUrl
@@ -107,7 +107,7 @@ func ValidateObjectSpec(ctx context.Context, tokenDetails *TokenDetails, secretR
 	// Get the service account details. If not provided, the operator's service account will be used by default.
 	serviceAccount, err := GetServiceAccount(ctx, k8sClient, tokenDetails)
 	if err != nil {
-		return &ReconcileError{Message: "Error reading operator's resource, the current reconciliation cycle will end here", Cause: err}
+		return &ReconcileError{Message: "Error reading operator's service account resource, the current reconciliation cycle will end here", Cause: err}
 	}
 
 	// Check if the service account name and namespace are provided in the custom resource, if not, updating the custom resource with the operator's service account name and namespace

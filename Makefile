@@ -31,7 +31,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
 # jfrog.com/operator-bundle:$VERSION and jfrog.com/operator-catalog:$VERSION.
-IMAGE_TAG_BASE ?= docker.jfrog.io/jfrog/jfrog-registry-operator:2.1.5
+IMAGE_TAG_BASE ?= docker.jfrog.io/jfrog/jfrog-registry-operator:3.0.0
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
@@ -89,7 +89,8 @@ help: ## Display this help.
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=charts/jfrog-registry-operator/crds
+	sed 's/scope: .*/scope: Namespaced/' config/crd/bases/apps.jfrog.com_secretrotators.yaml > config/crd/bases/apps.jfrog.com_secretrotators_namespaced_scope.yaml
+	mv config/crd/bases/apps.jfrog.com_secretrotators.yaml config/crd/bases/apps.jfrog.com_secretrotators_cluster_scope.yaml
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.

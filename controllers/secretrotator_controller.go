@@ -37,6 +37,8 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -93,19 +95,19 @@ func (r *SecretRotatorReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// InitializeResource initializes the secret rotator object and validates specs
 	if err := r.InitializeResource(ctx, &tokenDetails, secretRotator, req); err != nil {
 		r.Recorder.Eventf(secretRotator, "Warning", "Failed in initializing resource", "%s", err)
-		return r.handleError(err)
+		return reconcile.Result{RequeueAfter: 1 * time.Second, Requeue: true}, nil
 	}
 
 	// ManagingSecrets is validating the desired state versus the actual state of secrets and creating or updating secrets.
 	if err := r.ManagingSecrets(ctx, &tokenDetails, secretRotator, req); err != nil {
 		r.Recorder.Eventf(secretRotator, "Warning", "Failed in managing secret", "%s", err)
-		return r.handleError(err)
+		return reconcile.Result{RequeueAfter: 1 * time.Second, Requeue: true}, nil
 	}
 
 	// UpdateStatus, update the custom resource status
 	if err := r.UpdateStatus(ctx, &tokenDetails, secretRotator); err != nil {
 		r.Recorder.Eventf(secretRotator, "Warning", "Failed in updating status", "%s", err)
-		return r.handleError(err)
+		return reconcile.Result{RequeueAfter: 1 * time.Second, Requeue: true}, nil
 	}
 
 	// Use fixed interval if configured, otherwise utilize aws role max session time

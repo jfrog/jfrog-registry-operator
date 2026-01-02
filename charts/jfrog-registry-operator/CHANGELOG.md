@@ -1,6 +1,9 @@
 # JFrog Secret Rotator Operator Chart Changelog
 All changes to this chart will be documented in this file.
 
+## [3.0.0] - Dec 31, 2025
+* Added namespaced scoped support jfrog registry operator, CR object level
+
 ## [2.1.5] - Nov 10, 2025
 * Bumping Golang and dependency versions
 
