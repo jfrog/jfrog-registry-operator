@@ -14,6 +14,11 @@
 
 ## Setting up JFrog’s AssumeRole Capabilities in AWS
 
+> Note:  
+JFrog Registry Operator introduces a Kubernetes kubelet credential provider for Amazon EKS, Azure AKS, and Google GKE. This provider enables seamless, passwordless authentication with JFrog Artifactory for container image pulls, removing the need for manual image pull secret management.
+
+> For more details, see [JFrog Credentials Provider](https://github.com/jfrog/jfrog-credentials-provider).
+
 Follow the [official documentation](https://jfrog.com/help/r/jfrog-installation-setup-documentation/passwordless-access-for-amazon-eks) for detailed instructions on detailed information and AWS configuration required to run the JFrog Registry Operator.
 
 The integration of AWS Assume Role and JFrog Access presents a powerful solution that enables AWS Identity and Access Management  (IAM) users to temporarily assume permissions to perform actions in a secure and controlled manner. The solution enhances Kubernetes Secrets Management by automating token rotation, enhancing access controls, and seamlessly integrating JFrog Artifactory into the AWS environment
