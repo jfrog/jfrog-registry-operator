@@ -41,8 +41,8 @@ Pick the authentication mode that matches your cluster setup:
 
 | Mode | When to use | Setup guide |
 | --- | --- | --- |
-| **EKS Pod Identity** | Recommended for new EKS clusters using the EKS Pod Identity Agent | [Pod Identity setup](https://docs.jfrog.com/installation/docs/install-jfrog-platform-via-helm-quick-start/eks-pod-identity-configuration) |
-| **EKS Web Identity (IRSA)** | Existing clusters using IAM Roles for Service Accounts (OIDC) | [IRSA setup](https://docs.jfrog.com/installation/docs/install-jfrog-platform-via-helm-quick-start/eks-pod-identity-configuration) |
+| **EKS Pod Identity** | Recommended for new EKS clusters using the EKS Pod Identity Agent | [Pod Identity setup](https://docs.jfrog.com/installation/docs/eks-pod-identity-configuration) |
+| **EKS Web Identity (IRSA)** | Existing clusters using IAM Roles for Service Accounts (OIDC) | [IRSA setup](https://docs.jfrog.com/installation/docs/eks-pod-identity-configuration) |
 
 ### 2. For Web Identity (IRSA)
 
