@@ -75,6 +75,12 @@ type SecretRotatorSpec struct {
 	// Security holding tls/ssl certificates details
 	Security SecurityDetails `json:"security,omitempty"`
 
+	// AuthType defines how AWS credentials are resolved for the operator.
+	// +kubebuilder:validation:Enum=auto;webIdentity;podIdentity
+	// +kubebuilder:default=auto
+	// +optional
+	AuthType string `json:"authType,omitempty"`
+
 	// AwsRegion holding aws region name
 	// +optional
 	AwsRegion string `json:"awsRegion,omitempty"`
@@ -156,6 +162,10 @@ type SecretRotatorStatus struct {
 	// SecretManagedByNamespaces are the secrets in the namespaces that are managed by the SecretRotator
 	// +optional
 	SecretManagedByNamespaces map[string][]string `json:"secretManagedByNamespaces,omitempty"`
+
+	// AuthType is the type of authentication used to get the AWS credentials
+	// +optional
+	AuthType string `json:"authType,omitempty"`
 }
 
 // ExternalSecretCreationPolicy defines rules on how to create the resulting Secret.

@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"os"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -52,6 +53,7 @@ type TokenDetails struct {
 	DefaultServiceAccountNamespace string
 	RoleMaxSessionDuration         *int32
 	IAMRoleAwsRegion               string
+	AuthType                       string
 }
 
 // ReconcileError reconcile error struct
@@ -92,3 +94,28 @@ const (
 	// ServiceAccountExpirationSeconds is the default expiration time for service account tokens
 	ServiceAccountExpirationSeconds = 3600
 )
+
+const (
+	// PodIdentityAuthType is the type of authentication used to get the AWS credentials
+	PodIdentityAuthType = "podIdentity"
+
+	// WebIdentityAuthType is the type of authentication used to get the AWS credentials using IRSA (OIDC token + STS AssumeRoleWithWebIdentity)
+	WebIdentityAuthType = "webIdentity"
+
+	// AutoAuthType is the type of authentication used to get the AWS credentials automatically. If the Pod Identity is detected, it will use Pod Identity, otherwise it will use Web Identity.
+	AutoAuthType = "auto"
+)
+
+// CredentialsResponse is the response from the credentials endpoint
+type CredentialsResponse struct {
+	AccessKeyId     string `json:"AccessKeyId"`
+	SecretAccessKey string `json:"SecretAccessKey"`
+	Token           string `json:"Token"`
+}
+
+// DetectPodIdentity checks if EKS Pod Identity is active
+func DetectPodIdentity() bool {
+	// Pod Identity is detected by the presence of AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE
+	tokenFile := os.Getenv("AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE")
+	return tokenFile != ""
+}

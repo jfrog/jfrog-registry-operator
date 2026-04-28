@@ -29,9 +29,41 @@ The following diagram shows the basic architecture of how AssumeRole integrates 
 
 ![image](./config/images/secretrotator.png)
 
-If you are interested in making the move from vulnerable manual secret handling to secure automated secret management, then your journey towards a more secure and seamless containerized future begins here. See how quickly this powerful capability can be deployed by checking out our [step-by-step installation and configuration guide](https://jfrog.com/help/r/jfrog-installation-setup-documentation/passwordless-access-for-amazon-eks).
+If you are interested in making the move from vulnerable manual secret handling to secure automated secret management, then your journey towards a more secure and seamless containerized future begins here. 
 
-## Install operator using helm chart - Ignore if you already installed using Setting up JFrog’s AssumeRole Capabilities in AWS
+## Steps to Set Up AssumeRole Capabilities in AWS
+
+For the complete walkthrough, see the [step-by-step installation and configuration guide](https://jfrog.com/help/r/jfrog-installation-setup-documentation/passwordless-access-for-amazon-eks).
+
+### 1. Choose Your Authentication Mode
+
+Pick the authentication mode that matches your cluster setup:
+
+| Mode | When to use | Setup guide |
+| --- | --- | --- |
+| **EKS Pod Identity** | Recommended for new EKS clusters using the EKS Pod Identity Agent | [Pod Identity setup](https://docs.jfrog.com/installation/docs/install-jfrog-platform-via-helm-quick-start/eks-pod-identity-configuration) |
+| **EKS Web Identity (IRSA)** | Existing clusters using IAM Roles for Service Accounts (OIDC) | [IRSA setup](https://docs.jfrog.com/installation/docs/install-jfrog-platform-via-helm-quick-start/eks-pod-identity-configuration) |
+
+### 2. For Web Identity (IRSA)
+
+You have two ways to install the operator. Pick **one**.
+
+#### Option A — Terraform (single-step, IRSA only)
+
+A single Terraform module provisions the IAM role, policies, and the JFrog Registry Operator end-to-end.
+
+- Guide: [Terraform approach documentation](./terraform/)
+- Best for: greenfield environments where you want everything provisioned as code.
+
+#### Option B — Manual EKS configuration + Helm install
+
+Configure the cluster yourself, then install the operator. Follow these steps in order:
+
+1. [Configure the EKS cluster with the AWS policy and IAM role](https://docs.jfrog.com/installation/docs/configure-the-eks-cluster-with-the-aws-policy-and-iam-role)
+2. [Configure the JFrog Platform for passwordless access to EKS](https://docs.jfrog.com/installation/docs/configure-jfrog-platform-for-passwordless-access-to-eks)
+3. Install the Registry Operator using **either**:
+   - The [official EKS installation guide](https://docs.jfrog.com/installation/docs/install-the-jfrog-registry-operator-in-eks), **or**
+   - The Helm chart instructions below (skip this if you already installed via the AssumeRole setup above).
 
 ```bash
 # Get the latest [Helm release](https://github.com/helm/helm#install) Note: (only V3 is supported)
@@ -51,10 +83,10 @@ export NAMESPACE="jfrog-operator"
 
 # Install or Upgrade CRD
 For Cluster scope:
-kubectl apply -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/v3.0.0/config/crd/bases/apps.jfrog.com_secretrotators_cluster_scope.yaml
+kubectl apply -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/master/config/crd/bases/apps.jfrog.com_secretrotators_cluster_scope.yaml
 
 For Namespace scope:
-kubectl apply -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/v3.0.0/config/crd/bases/apps.jfrog.com_secretrotators_namespaced_scope.yaml
+kubectl apply -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/master/config/crd/bases/apps.jfrog.com_secretrotators_namespaced_scope.yaml
 
 # Install JFrog secret rotator operator
 helm upgrade --install secretrotator jfrog/jfrog-registry-operator --set "serviceAccount.name=${SERVICE_ACCOUNT_NAME}" --set serviceAccount.annotations=${ANNOTATIONS}  --namespace  ${NAMESPACE} --create-namespace
@@ -104,11 +136,12 @@ spec:
     # - secretName: token-generic-secret
     #   secretType: generic
   artifactoryUrl: "artifactory.example.com"
+  authType: webIdentity #auto, podIdentity
   # artifactorySubdomains: []
   refreshTime: 30m
-  # serviceAccount: # The default name and namespace will be the operator’s service account name and namespace
-  #   name: ""
-  #   namespace: ""
+  #  serviceAccount: # The default name and namespace will be the operator’s service account name and namespace
+  #    name: ""
+  #    namespace: ""
   secretMetadata:
     annotations:
       annotationKey: annotationValue
@@ -148,12 +181,12 @@ kubectl delete crd secretrotators.apps.jfrog.com
 # update the helm repo
 helm repo update
 
-# Install or Upgrade CRD
+# Upgarde
 For Cluster scope:
-kubectl apply -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/v3.0.0/config/crd/bases/apps.jfrog.com_secretrotators_cluster_scope.yaml
+kubectl apply -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/master/config/crd/bases/apps.jfrog.com_secretrotators_cluster_scope.yaml
 
 For Namespace scope:
-kubectl apply -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/v3.0.0/config/crd/bases/apps.jfrog.com_secretrotators_namespaced_scope.yaml
+kubectl apply -f https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/master/config/crd/bases/apps.jfrog.com_secretrotators_namespaced_scope.yaml
 
 # Uninstall the secretrotator using the following command
 helm upgrade --install secretrotator jfrog/jfrog-registry-operator --set "serviceAccount.name=${SERVICE_ACCOUNT_NAME}" --set serviceAccount.annotations=${ANNOTATIONS}  --namespace  ${NAMESPACE} --create-namespace

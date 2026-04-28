@@ -170,6 +170,9 @@ func (r *SecretRotatorReconciler) UpdateStatus(ctx context.Context, tokenDetails
 	// ToNamespaceFailures iterates through failed namespaces and returns a list with failure reason
 	secretRotator.Status.FailedNamespaces = resource.ToNamespaceFailures(tokenDetails.FailedNamespaces)
 
+	// Update the status with the auth type
+	secretRotator.Status.AuthType = tokenDetails.AuthType
+
 	// Sorting ProvisionedNamespaces to update in status
 	sort.Strings(tokenDetails.ProvisionedNamespaces)
 	secretRotator.Status.ProvisionedNamespaces = tokenDetails.ProvisionedNamespaces

@@ -1,6 +1,11 @@
 # JFrog Secret Rotator Operator Chart Changelog
 All changes to this chart will be documented in this file.
 
+## [3.1.1] - April 28, 2025
+* Adding EKS Pod Identity support to the JFrog Registry Operator.
+** By default, the operator automatically detects the setup and initiates secret rotation. No need to configure externally.
+** To explicitly use Pod Identity only, update spec.authType to podIdentity.
+
 ## [3.0.0] - Dec 31, 2025
 * Added namespaced scoped support jfrog registry operator, CR object level
 

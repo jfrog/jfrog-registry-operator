@@ -54,6 +54,7 @@ export TF_VAR_eks_region=<aws-region>
 export TF_VAR_jfrog_url=<jfrog-artifactory-url>
 export TF_VAR_jfrog_scoped_tokens=<jfrog-api-token>
 ```
+#### Note: The default value for TF_VAR_service_accounts is jfrogoperatorsa. Please use this service account for the secret rotator object.
 
 ### Example for multiple ARNs/Users:
 
@@ -125,6 +126,7 @@ spec:
   namespaceSelector:
     matchLabels:
       kubernetes.io/metadata.name: jfrog-operator
+  authType: webIdentity #auto, podIdentity
   generatedSecrets:
     - secretName: token-imagepull-secret
       secretType: docker
