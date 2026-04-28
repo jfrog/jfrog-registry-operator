@@ -4,19 +4,19 @@
 *                                                                                          *
 * JFrog secret rotator operator successfully deployed                                      *
 *                                                                                          *
-* # For secrets in your namespaces,                                                        *
-* kubectl get secrets -n  ${NAMESPACE} (Or any other namespace based on matching label)    *
 * # For operator pod in your namespace                                                     *
 * kubectl get po -n ${NAMESPACE}                                                           *
-* # For SecretRotator                                                                      *
-* kubectl get SecretRotator                                                                *
+* # Configure For SecretRotator object and install it                                      *
+* kubectl kubectl apply -f SecretRotator                                                   *
+* # Verify the secrets in your configured namespaces                                       *
+* kubectl get secrets -n  ${NAMESPACE} (Or any other namespace based on matching label)    *                                                                 *
 *                                                                                          *
 ********************************************************************************************
 
 {{- if and (empty .Values.exchangedServiceAccounts) (empty .Values.serviceAccount.annotations) }}
 ******************************************************************************
             IMPORTANT: STOPPED to prevent false Installation!
-Note: Make sure to pass the current .Values.serviceAccount.annotations or use external service account.
+Note: Otherwise Make sure to pass the current .Values.serviceAccount.annotations or use external service account.
 
 If you want the installation to use an external user's service account,
 please update your service account with the required ARN annotation,
@@ -31,5 +31,7 @@ Example to update in Custom Resource Info:
 serviceAccount:
   name: ""
   namespace: ""
+
+**IMPORTANT**: If you are using *Pod Identity* setup (non IRSA based), please ignore this warning.
 ******************************************************************************"
 {{- end }}

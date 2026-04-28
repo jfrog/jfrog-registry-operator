@@ -114,7 +114,7 @@ func ValidateObjectSpec(ctx context.Context, tokenDetails *TokenDetails, secretR
 	if secretRotator.Spec.ServiceAccount.Name == "" || secretRotator.Spec.ServiceAccount.Namespace == "" {
 		logger.Info("Service account name and namespace not provided in the custom resource, using the operator's service account")
 		roleARN := serviceAccount.Annotations[AwsRoleARNKey]
-		if roleARN == "" {
+		if roleARN == "" && !DetectPodIdentity() {
 			return &ReconcileError{Message: "No service account details were provided in resource, and the operator's service account does not have the required ARN annotation. Please either update the operator's service account with the appropriate annotation or specify your service account by providing serviceAccount.name and serviceAccount.namespace in the custom resource."}
 		}
 		logger.Info("Using the operator's default service account", "roleARN", roleARN)

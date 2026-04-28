@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
@@ -39,13 +38,16 @@ func GetMaxSession(ctx context.Context, roleArn string, appCreds *aws.Credential
 		err := errors.New("role arn is not valid")
 		return nil, err
 	}
-	roleName, cfg, err := substrings[1], aws.Config{}, error(nil)
+	roleName := substrings[1]
+	var cfg aws.Config
+	var err error
+
 	if resourceSAName == tokenDetails.DefaultServiceAccountName && resourceSANamespace == tokenDetails.DefaultServiceAccountNamespace {
 		logger.Info("Operator's service account is used", "role", roleName, "service account", "type - single user")
 		cfg, err = awsconfig.LoadDefaultConfig(ctx)
 	} else {
 		logger.Info("External service account is used", "role", roleName, "service account", "type - multi user", "aws-config", "default aws region and ec2 imds region")
-		cfg, err = awsconfig.LoadDefaultConfig(ctx, config.WithCredentialsProvider(appCreds), config.WithRegion(tokenDetails.IAMRoleAwsRegion), config.WithEC2IMDSRegion())
+		cfg, err = awsconfig.LoadDefaultConfig(ctx, awsconfig.WithCredentialsProvider(appCreds), awsconfig.WithRegion(tokenDetails.IAMRoleAwsRegion), awsconfig.WithEC2IMDSRegion())
 	}
 	if err != nil {
 		return nil, err
@@ -64,11 +66,44 @@ func GetMaxSession(ctx context.Context, roleArn string, appCreds *aws.Credential
 	return result.Role.MaxSessionDuration, nil
 }
 
+// GetMaxSessionWithCredentialCache reads IAM MaxSessionDuration for roleArn using a fixed credential source
+// (e.g. Pod Identity keys from the agent). Used when credentials are not loaded via the default SDK chain.
+func GetMaxSessionWithCredentialCache(ctx context.Context, roleArn string, credCache *aws.CredentialsCache, tokenDetails *operations.TokenDetails) (*int32, error) {
+	logger := log.FromContext(ctx)
+	substrings := strings.Split(roleArn, "/")
+	if len(substrings) != 2 {
+		return nil, errors.New("role arn is not valid")
+	}
+	roleName := substrings[1]
+	region := tokenDetails.IAMRoleAwsRegion
+	if region == "" {
+		region = operations.AwsRegion
+	}
+	logger.Info("Reading IAM role max session duration", "role", roleName, "auth", "podIdentity")
+	cfg, err := awsconfig.LoadDefaultConfig(ctx,
+		awsconfig.WithCredentialsProvider(credCache),
+		awsconfig.WithRegion(region),
+	)
+	if err != nil {
+		return nil, err
+	}
+	iamClient := iam.NewFromConfig(cfg)
+	result, err := iamClient.GetRole(ctx, &iam.GetRoleInput{RoleName: aws.String(roleName)})
+	if err != nil {
+		return nil, err
+	}
+	if result.Role == nil {
+		return nil, errors.New("could not extract max session from roleARN")
+	}
+	return result.Role.MaxSessionDuration, nil
+}
+
 // GetSignedRequestAndHandleRoleMaxSession signs aws credentials to be used for GetCallerIdentity request
 func GetSignedRequestAndHandleRoleMaxSession(ctx context.Context, roleArn string, webIdentityToken string, resourceSAName, resourceSANamespace string, tokenDetails *operations.TokenDetails) (*http.Request, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("Signing request", "role", roleArn)
-	cfg, err := aws.Config{}, error(nil)
+	var cfg aws.Config
+	var err error
 
 	// loading default aws config
 	// if the operator's service account is used, we will use the default aws config
@@ -77,7 +112,7 @@ func GetSignedRequestAndHandleRoleMaxSession(ctx context.Context, roleArn string
 	if resourceSAName == tokenDetails.DefaultServiceAccountName && resourceSANamespace == tokenDetails.DefaultServiceAccountNamespace {
 		cfg, err = awsconfig.LoadDefaultConfig(ctx)
 	} else {
-		cfg, err = awsconfig.LoadDefaultConfig(ctx, config.WithRegion(tokenDetails.IAMRoleAwsRegion), config.WithEC2IMDSRegion())
+		cfg, err = awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(tokenDetails.IAMRoleAwsRegion), awsconfig.WithEC2IMDSRegion())
 	}
 	if err != nil {
 		return nil, &operations.ReconcileError{Message: "Got error loading default aws config", Cause: err, RetryIn: 1 * time.Minute}
@@ -121,8 +156,10 @@ func GetSignedRequestAndHandleRoleMaxSession(ctx context.Context, roleArn string
 	//getting max aws role session time to be used as artiactory token expiration time
 	tokenDetails.RoleMaxSessionDuration, err = GetMaxSession(ctx, roleArn, appCreds, resourceSAName, resourceSANamespace, tokenDetails)
 	if err != nil {
-		logger.Error(err, "Error getting role max session time, we will use default artifactory token expiration: 3 hours")
 		tokenDetails.RoleMaxSessionDuration = aws.Int32(operations.RoleMaxSessionDuration) // 3 hours
+		logger.Info("Using default Artifactory token expiration (IAM GetRole / max session lookup failed)",
+			"reason", err.Error(),
+			"durationSeconds", *tokenDetails.RoleMaxSessionDuration)
 	}
 
 	return req, nil

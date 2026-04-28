@@ -1,10 +1,14 @@
+
 provider "aws" {
   region = var.eks_region
+
 }
 
 provider "helm" {
   kubernetes = {
-    config_path = "~/.kube/config"  # or use var.kubeconfig
+    host                   = data.aws_eks_cluster.eks.endpoint
+    cluster_ca_certificate = base64decode(data.aws_eks_cluster.eks.certificate_authority[0].data)
+    token                  = data.aws_eks_cluster_auth.eks.token
   }
 }
 
@@ -67,7 +71,7 @@ variable "service_users" {
 variable "operator_version" {
   description = "Version of jfrog registry operator helm chart"
   type        = string
-  default     = ""
+  default     = "3.1.1"
 }
 
 # New variables for Helm configuration
@@ -116,6 +120,10 @@ locals {
   }
 
   default_namespace = var.namespace
+
+  # OIDC issuer from EKS API (avoids external/bash + AWS CLI — those subprocesses are often killed in CI/sandbox)
+  eks_oidc_issuer_url = data.aws_eks_cluster.eks.identity[0].oidc[0].issuer
+  eks_oidc_issuer_id  = replace(local.eks_oidc_issuer_url, "https://", "")
 }
 
 resource "null_resource" "install_crd" {
@@ -125,8 +133,8 @@ resource "null_resource" "install_crd" {
     command = <<EOT
 kubectl apply -f ${
   var.scope == "cluster"
-  ? "https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/v3.0.0/config/crd/bases/apps.jfrog.com_secretrotators_cluster_scope.yaml"
-  : "https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/v3.0.0/config/crd/bases/apps.jfrog.com_secretrotators_namespaced_scope.yaml"
+  ? "https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/master/config/crd/bases/apps.jfrog.com_secretrotators.yaml"
+  : "https://raw.githubusercontent.com/jfrog/jfrog-registry-operator/refs/heads/master/config/crd/bases/apps.jfrog.com_secretrotators_namespaced_scope.yaml"
 }
 EOT
   }
@@ -154,30 +162,21 @@ resource "null_resource" "list_length_check" {
   }
 }
 
-# Fetch OIDC issuer URL from EKS
+# EKS cluster (OIDC issuer for IRSA trust + IAM OIDC provider URL)
 data "aws_eks_cluster" "eks" {
   name = var.eks_cluster_name
 }
 
-data "external" "eks_oidc_issuer" {
-  program = [
-    "bash",
-    "-c",
-    "echo '{\"issuer\": \"'$(aws eks describe-cluster --name ${var.eks_cluster_name} --region ${var.eks_region} --query \"cluster.identity.oidc.issuer\" --output text | sed -e \"s/^https:\\/\\///\")'\"}'"
-  ]
+# EKS auth token for Helm/Kubernetes API (no kubeconfig `exec: aws` dependency).
+data "aws_eks_cluster_auth" "eks" {
+  name = var.eks_cluster_name
 }
 
-data "external" "account_id" {
-  program = [
-    "bash",
-    "-c",
-    "echo '{\"account_id\": \"'$(aws sts get-caller-identity --query 'Account' --output text)'\"}'"
-  ]
-}
+data "aws_caller_identity" "current" {}
 
 # Create OpenID Connect (OIDC) identity provider in AWS IAM
 resource "aws_iam_openid_connect_provider" "eks_oidc_provider" {
-  url             = "https://${data.external.eks_oidc_issuer.result["issuer"]}"
+  url             = local.eks_oidc_issuer_url
   client_id_list  = ["sts.amazonaws.com"]
 
   tags = {
@@ -186,11 +185,11 @@ resource "aws_iam_openid_connect_provider" "eks_oidc_provider" {
 }
 
 output "eks_oidc_issuer" {
-  value = data.external.eks_oidc_issuer.result
+  value = { issuer = local.eks_oidc_issuer_id }
 }
 
 output "account_id" {
-  value = data.external.account_id.result
+  value = { account_id = data.aws_caller_identity.current.account_id }
 }
 
 output "oidc_provider_arn" {
@@ -208,14 +207,14 @@ resource "aws_iam_role" "aws_reg_operator_role" {
       {
         "Effect" : "Allow",
         "Principal" : {
-          "Federated" : "arn:aws:iam::${data.external.account_id.result["account_id"]}:oidc-provider/${data.external.eks_oidc_issuer.result["issuer"]}"
+          "Federated" : "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${local.eks_oidc_issuer_id}"
         },
         "Action" : "sts:AssumeRoleWithWebIdentity",
         "Condition" : {
           "StringEquals" : {
             # Dynamically use the namespace for this service account
-            "${data.external.eks_oidc_issuer.result["issuer"]}:aud" : "sts.amazonaws.com",
-            "${data.external.eks_oidc_issuer.result["issuer"]}:sub" : "system:serviceaccount:${lookup(local.service_account_namespace_map, element(local.service_account_list, count.index), local.default_namespace)}:${element(local.service_account_list, count.index)}"
+            "${local.eks_oidc_issuer_id}:aud" : "sts.amazonaws.com",
+            "${local.eks_oidc_issuer_id}:sub" : "system:serviceaccount:${lookup(local.service_account_namespace_map, element(local.service_account_list, count.index), local.default_namespace)}:${element(local.service_account_list, count.index)}"
           }
         }
       }

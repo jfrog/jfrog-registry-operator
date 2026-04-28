@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"artifactory-secrets-rotator/api/v1alpha1"
 	jfrogv1alpha1 "artifactory-secrets-rotator/api/v1alpha1"
 	k8sClientSet "artifactory-secrets-rotator/internal/client"
 	"errors"
@@ -18,8 +17,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aws/smithy-go/ptr"
-	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,9 +29,10 @@ const tokenEndpoint = "/access/api/v1/aws/token"
 // HandlingToken Get JFrog access token
 func HandlingToken(ctx context.Context, tokenDetails *operations.TokenDetails, secretRotator *jfrogv1alpha1.SecretRotator, recorder record.EventRecorder, k8sClient client.Client) error {
 	logger := log.FromContext(ctx)
-
+	var request *http.Request
 	if tokenDetails.Token != "" {
 		logger.Info("Token already defined. skipping artifactory token creation")
+		return nil
 	}
 
 	// Check if the service account name already exists
@@ -63,39 +61,36 @@ func HandlingToken(ctx context.Context, tokenDetails *operations.TokenDetails, s
 		return err
 	}
 
-	// Check if the role arn annotation exists or not, if not, it will be set for reconciliation
-	roleARN := serviceAccount.Annotations[operations.RoleARNKey]
-	if roleARN == "" {
-		logger.Error(err, "Error getting the role ARN from the service account's annotations")
-		return &operations.ReconcileError{Message: "role ARN annotation is empty", RetryIn: 1 * time.Minute}
+	configuredAuthType := secretRotator.Spec.AuthType
+	if configuredAuthType == "" {
+		configuredAuthType = operations.AutoAuthType
 	}
+	tokenDetails.AuthType = configuredAuthType
 
-	// Create token request for the target service account
-	tokenRequest, err := clientset.CoreV1().ServiceAccounts(secretRotator.Spec.ServiceAccount.Namespace).CreateToken(
-		ctx,
-		secretRotator.Spec.ServiceAccount.Name,
-		&authenticationv1.TokenRequest{Spec: authenticationv1.TokenRequestSpec{Audiences: []string{operations.AmazonAwsSts}, ExpirationSeconds: ptr.Int64(operations.ServiceAccountExpirationSeconds)}},
-		metav1.CreateOptions{},
-	)
-	if err != nil {
-		recorder.Eventf(secretRotator, "Warning", "Misconfiguration",
-			fmt.Sprintf("failed to create token for user/service account %s from %s namespace, error: %s", secretRotator.Spec.ServiceAccount.Name, secretRotator.Spec.ServiceAccount.Namespace, err.Error()))
-		return err
-	}
+	// check if the auth type is pod identity
+	if (configuredAuthType == operations.PodIdentityAuthType || configuredAuthType == operations.AutoAuthType) && operations.DetectPodIdentity() {
+		request, err = GetSignedRequestForPodIdentity(ctx, tokenDetails)
+		if err != nil {
+			return err
+		}
+		tokenDetails.AuthType = operations.PodIdentityAuthType
+	} else if configuredAuthType == operations.WebIdentityAuthType || configuredAuthType == operations.AutoAuthType {
+		request, err = GetSignedRequestForWebIdentity(ctx, tokenDetails, serviceAccount, recorder, clientset, secretRotator)
+		if err != nil {
+			return err
+		}
+		tokenDetails.AuthType = operations.WebIdentityAuthType
 
-	// getting signed request headers for AWS STS GetCallerIdentity call and check role max session duration
-	// this is needed to get the max session duration for the role ARN
-	request, err := GetSignedRequestAndHandleRoleMaxSession(ctx, roleARN, tokenRequest.Status.Token, secretRotator.Spec.ServiceAccount.Name, secretRotator.Spec.ServiceAccount.Namespace, tokenDetails)
-	if err != nil {
-		recorder.Eventf(secretRotator, "Warning", "TokenGenerationFailure",
-			fmt.Sprintf("Error getting signed AWS credentials, error was %s", err.Error()))
-		return err
+	} else {
+		recorder.Eventf(secretRotator, "Error", "Misconfiguration",
+			fmt.Sprintf("failed to get the correct auth type (%s) from secretRotator.spec.authType or missing Pod Identity environment (Pod Identity detected: %t)", configuredAuthType, operations.DetectPodIdentity()))
+		return errors.New("failed to get correct auth (auto, podIdentity or webIdentity) or missing pod identity environments for podIdentity auth type")
 	}
 
 	//getting max aws role session time to be used as artiactory token expiration time
 	maxTTL := tokenDetails.RoleMaxSessionDuration
 	if secretRotator.Spec.RefreshInterval == nil {
-		logger.Info("JFrog access token TTL will use AWS role Max Session Duration", "role", roleARN, "roleMaxSession", maxTTL)
+		logger.Info("JFrog access token TTL will use AWS role Max Session Duration", "roleMaxSession", maxTTL)
 	}
 
 	// if the maxTTL is not set we will use the default value of 3 hours
@@ -184,13 +179,13 @@ func createCustomHTTPClient(securityDetails *jfrogv1alpha1.SecurityDetails, secr
 		return &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}, nil
 	}
 
-	dirPath := v1alpha1.CustomCertificatePath + secretRotatorName
-	if operations.FileExists(dirPath+v1alpha1.CertPem) && operations.FileExists(dirPath+v1alpha1.KeyPem) || operations.FileExists(dirPath+v1alpha1.TlsCrt) && operations.FileExists(dirPath+v1alpha1.TlsKey) {
-		certPath := v1alpha1.CertPem
-		keyPath := v1alpha1.KeyPem
-		if operations.FileExists(dirPath+v1alpha1.TlsCrt) && operations.FileExists(dirPath+v1alpha1.TlsKey) {
-			certPath = v1alpha1.TlsCrt
-			keyPath = v1alpha1.TlsKey
+	dirPath := jfrogv1alpha1.CustomCertificatePath + secretRotatorName
+	if operations.FileExists(dirPath+jfrogv1alpha1.CertPem) && operations.FileExists(dirPath+jfrogv1alpha1.KeyPem) || operations.FileExists(dirPath+jfrogv1alpha1.TlsCrt) && operations.FileExists(dirPath+jfrogv1alpha1.TlsKey) {
+		certPath := jfrogv1alpha1.CertPem
+		keyPath := jfrogv1alpha1.KeyPem
+		if operations.FileExists(dirPath+jfrogv1alpha1.TlsCrt) && operations.FileExists(dirPath+jfrogv1alpha1.TlsKey) {
+			certPath = jfrogv1alpha1.TlsCrt
+			keyPath = jfrogv1alpha1.TlsKey
 		}
 		// Load server certs
 		cert, err := tls.LoadX509KeyPair(dirPath+certPath, dirPath+keyPath)
@@ -200,10 +195,10 @@ func createCustomHTTPClient(securityDetails *jfrogv1alpha1.SecurityDetails, secr
 		tr.TLSClientConfig.Certificates = []tls.Certificate{cert}
 	}
 
-	if operations.FileExists(dirPath+v1alpha1.CaPem) || operations.FileExists(dirPath+v1alpha1.TlsCa) {
-		caPath := v1alpha1.CaPem
-		if operations.FileExists(dirPath + v1alpha1.TlsCa) {
-			caPath = v1alpha1.TlsCa
+	if operations.FileExists(dirPath+jfrogv1alpha1.CaPem) || operations.FileExists(dirPath+jfrogv1alpha1.TlsCa) {
+		caPath := jfrogv1alpha1.CaPem
+		if operations.FileExists(dirPath + jfrogv1alpha1.TlsCa) {
+			caPath = jfrogv1alpha1.TlsCa
 		}
 		// Load CA cert
 		caCert, err := ioutil.ReadFile(dirPath + caPath)
