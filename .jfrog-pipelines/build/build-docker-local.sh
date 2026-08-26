@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export PROJECT_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../../../.. && pwd)"
+export PROJECT_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
 
 errorExit () {
     echo; echo "ERROR: $1"; echo
@@ -9,8 +9,8 @@ errorExit () {
 
 echo; echo "Building Docker image from $1"
 
-UBI_MICRO_VERSION=9.2.13
-UBI_MINIMAL_VERSION=9.2.717
+UBI_MICRO_VERSION=9.4.15
+UBI_MINIMAL_VERSION=9.4.1227
 echo $pwd
 echo "Building and pushing a image"
 # docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
