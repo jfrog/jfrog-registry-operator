@@ -71,7 +71,7 @@ variable "service_users" {
 variable "operator_version" {
   description = "Version of jfrog registry operator helm chart"
   type        = string
-  default     = "3.1.1"
+  default     = "3.1.3"
 }
 
 # New variables for Helm configuration

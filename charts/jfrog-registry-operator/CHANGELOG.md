@@ -1,7 +1,19 @@
 # JFrog Secret Rotator Operator Chart Changelog
 All changes to this chart will be documented in this file.
 
-## [3.1.1] - April 28, 2025
+## [3.1.3] - Aug 25, 2026
+* Bumping Golang (`1.26.0` to `1.26.7`) and dependency versions
+* Fixed SCA findings:
+  * CVE-2026-56865, CVE-2026-56864 (`golang.org/x/mod`)
+  * CVE-2026-56852 (`golang.org/x/text`)
+  * CVE-2026-46600 (`golang.org/x/net`)
+  * XRAY-1032960 (`github.com/go-openapi/swag/jsonutils`)
+  * XRAY-1032959 (`github.com/go-openapi/swag/yamlutils`)
+
+## [3.1.2] - June 09, 2026
+* Bumping up dependencies
+
+## [3.1.1] - April 28, 2026
 * Adding EKS Pod Identity support to the JFrog Registry Operator.
 ** By default, the operator automatically detects the setup and initiates secret rotation. No need to configure externally.
 ** To explicitly use Pod Identity only, update spec.authType to podIdentity.
