@@ -147,8 +147,7 @@ func GetSignedRequestAndHandleRoleMaxSession(ctx context.Context, roleArn string
 	}
 
 	//using temporary role credentials for producing signed getCallerIdentity request headers
-	req, err := controllers2.SignV4a("GET",
-		"https://sts.amazonaws.com?Action=GetCallerIdentity&Version=2011-06-15", "sts", *creds)
+	req, err := signedCallerIdentityRequest(ctx, *creds)
 	if err != nil {
 		return nil, &operations.ReconcileError{Message: "Got error signing sts request", Cause: err, RetryIn: 1 * time.Minute}
 	}
@@ -163,4 +162,16 @@ func GetSignedRequestAndHandleRoleMaxSession(ctx context.Context, roleArn string
 	}
 
 	return req, nil
+}
+
+func signedCallerIdentityRequest(ctx context.Context, creds controllers2.AwsCredentials) (*http.Request, error) {
+	endpoint, err := sts.NewDefaultEndpointResolverV2().ResolveEndpoint(ctx, sts.EndpointParameters{
+		Region:            aws.String(creds.RegionName),
+		UseGlobalEndpoint: aws.Bool(false),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("resolve STS endpoint for region %q: %w", creds.RegionName, err)
+	}
+	endpoint.URI.RawQuery = "Action=GetCallerIdentity&Version=2011-06-15"
+	return controllers2.SignV4a(http.MethodGet, endpoint.URI.String(), "sts", creds)
 }
