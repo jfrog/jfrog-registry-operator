@@ -1,6 +1,9 @@
 # JFrog Secret Rotator Operator Chart Changelog
 All changes to this chart will be documented in this file.
 
+## [Unreleased]
+* Resolve regional STS endpoints for IRSA and EKS Pod Identity request signing, including AWS China endpoints. Token exchange still depends on JFrog Access supporting the selected endpoint.
+
 ## [3.1.3] - Aug 25, 2026
 * Bumping Golang (`1.26.0` to `1.26.7`) and dependency versions
 * Fixed SCA findings:

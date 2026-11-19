@@ -139,8 +139,7 @@ func GetSignedRequestForPodIdentity(ctx context.Context, tokenDetails *operation
 	}
 
 	// Sign the GetCallerIdentity request that JFrog expects
-	req, err = controllers2.SignV4a("GET",
-		"https://sts.amazonaws.com?Action=GetCallerIdentity&Version=2011-06-15", "sts", *creds)
+	req, err = signedCallerIdentityRequest(ctx, *creds)
 	if err != nil {
 		return nil, &operations.ReconcileError{Message: "Failed to sign the STS GetCallerIdentity request using Pod Identity credentials", Cause: err, RetryIn: 1 * time.Minute}
 	}
